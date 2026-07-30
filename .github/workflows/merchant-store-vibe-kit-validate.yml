@@ -39,7 +39,7 @@ jobs:
           cache: npm
           cache-dependency-path: merchant-store-vibe-coding-kit/source/merchant-store/package-lock.json
       - working-directory: ${{ env.KIT_DIR }}/source/merchant-store
-        run: npm ci --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - working-directory: ${{ env.KIT_DIR }}/source/merchant-store
         run: npm run build:prod
       - run: python3 $KIT_DIR/scripts/scan-frontend-secrets.py $KIT_DIR/source/merchant-store $KIT_DIR/source/merchant-store/dist
