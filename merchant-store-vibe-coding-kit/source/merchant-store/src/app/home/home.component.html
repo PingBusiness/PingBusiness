@@ -1,0 +1,28 @@
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <h1 class="hero-title">{{ store?.name }}</h1>
+      <p class="hero-tagline">Figma UI kits, web templates, and icon sets for indie founders and vibe coders.</p>
+    </div>
+    <a class="button-link hero-cta pill" routerLink="/catalog">View All Products</a>
+  </div>
+</section>
+
+<section class="section-heading">
+  <h2>New Products</h2>
+  <a class="plain-link" routerLink="/catalog">View All Products &rsaquo;</a>
+</section>
+
+<div *ngIf="loading" class="loading-card">Loading store…</div>
+
+<div *ngIf="!loading" class="simple-grid product-grid">
+  <app-product-card *ngFor="let product of visibleProducts()"
+    [product]="product"
+    (addToCart)="onAddToCart($event)"
+    (subscribeNow)="onSubscribe($event)">
+  </app-product-card>
+</div>
+
+<div *ngIf="!loading && visibleProducts().length === 0" class="empty-state">
+  No products were returned from the configured estore backend.
+</div>

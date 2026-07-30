@@ -1,0 +1,135 @@
+.order-detail {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.order-head h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: .7rem;
+  margin-bottom: 1rem;
+}
+
+.fact-grid div {
+  display: grid;
+  gap: .2rem;
+  border-radius: var(--radius-2);
+  background: var(--color-surface-muted);
+  padding: .75rem;
+}
+
+.fact-grid span {
+  color: var(--color-fg-muted);
+  font-size: .74rem;
+}
+
+.fact-grid strong {
+  font-size: .9rem;
+}
+
+.order-item-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.order-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.item-type {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .62rem;
+  font-weight: 500;
+  color: var(--color-fg-muted);
+}
+
+.item-name {
+  display: block;
+  margin-top: .3rem;
+  color: var(--color-fg);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.item-name:hover {
+  color: var(--color-brand);
+}
+
+.item-amount {
+  white-space: nowrap;
+}
+
+.item-amount small {
+  color: var(--color-fg-muted);
+  font-size: .72rem;
+  font-weight: 400;
+}
+
+.item-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: .55rem;
+  margin-top: 1rem;
+}
+
+.item-facts div {
+  display: grid;
+  gap: .2rem;
+  border-radius: var(--radius-2);
+  background: var(--color-surface-muted);
+  padding: .65rem;
+}
+
+.item-facts span {
+  color: var(--color-fg-muted);
+  font-size: .72rem;
+}
+
+.item-facts strong {
+  font-size: .86rem;
+}
+
+.subscription-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.ref-cell {
+  grid-column: 1 / -1;
+}
+
+.reference-text {
+  overflow-wrap: anywhere;
+}
+
+.data-panel-inner {
+  overflow-x: auto;
+}
+
+@media (max-width: 620px) {
+  .item-head {
+    flex-direction: column;
+  }
+}

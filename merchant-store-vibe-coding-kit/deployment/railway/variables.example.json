@@ -1,0 +1,24 @@
+{
+  "pingbusinessEnvironment": "staging",
+  "derivedBizAppBaseUrl": "https://biz-app.staging.pingbusiness.org",
+  "edge": {
+    "PUBLIC_HOST": "shop.example.com",
+    "PUBLIC_SCHEME": "https",
+    "PUBLIC_PORT": "443",
+    "ESTORE_APP_UPSTREAM": "estore-app.railway.internal:5000",
+    "KEYCLOAK_UPSTREAM": "keycloak.railway.internal:8080",
+    "MERCHANT_STORE_UPSTREAM": "merchant-store.railway.internal:80"
+  },
+  "merchant-store": {
+    "ESTORE_APP_PUBLIC_URL": "/api"
+  },
+  "estore-app": {
+    "DEV_MODE": "false",
+    "ESTORE_APP_PORT": "5000",
+    "BIZ_APP_BASE_URL": "https://biz-app.staging.pingbusiness.org",
+    "ESTORE_PUBLIC_BASE_URL": "https://shop.example.com/api",
+    "PINGBIZ_MERCHANT_IDENTIFIER": "__REQUIRED_SECRET__",
+    "PINGBIZ_STORE_IDENTIFIER": "__REQUIRED_SECRET__",
+    "PINGBIZ_MERCHANT_API_KEY": "__REQUIRED_SECRET__"
+  }
+}

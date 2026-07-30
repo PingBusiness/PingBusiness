@@ -1,0 +1,827 @@
+{
+  "$schema": "https://api.northflank.com/v1/schemas/template",
+  "apiVersion": "v1.2",
+  "name": "Ping Business Merchant Store",
+  "description": "Deploy a complete Ping Business merchant store with PostgreSQL, Keycloak, API, UI, and one public edge.",
+  "arguments": {
+    "PROJECT_NAME": "Ping Business Merchant Store",
+    "REGION": "europe-west",
+    "KIT_REPOSITORY_URL": "https://github.com/PingBusiness/PingBusiness",
+    "KIT_REPOSITORY_BRANCH": "main",
+    "UI_REPOSITORY_URL": "https://github.com/PingBusiness/PingBusiness",
+    "UI_REPOSITORY_BRANCH": "main",
+    "UI_DOCKER_WORK_DIR": "/merchant-store-vibe-coding-kit/source/merchant-store",
+    "UI_DOCKERFILE_PATH": "/merchant-store-vibe-coding-kit/source/merchant-store/Dockerfile",
+    "STORE_DOMAIN": "shop.example.com",
+    "STORE_DISPLAY_NAME": "",
+    "STORE_SUPPORT_EMAIL": "",
+    "PINGBUSINESS_ENVIRONMENT": "staging",
+    "BIZ_APP_BASE_URL": "https://biz-app.staging.pingbusiness.org",
+    "ESTORE_REALM": "ESTORE",
+    "ESTORE_CLIENT_ID": "estore-app",
+    "KEYCLOAK_ADMIN_USERNAME": "admin",
+    "POSTGRES_VERSION": "16-latest",
+    "POSTGRES_STORAGE_MB": "10240",
+    "POSTGRES_PLAN": "nf-compute-50",
+    "KEYCLOAK_PLAN": "nf-compute-100-2",
+    "BOOTSTRAP_PLAN": "nf-compute-50",
+    "BACKEND_PLAN": "nf-compute-50",
+    "UI_PLAN": "nf-compute-20",
+    "EDGE_PLAN": "nf-compute-20",
+    "BUILD_PLAN": "nf-compute-400-16",
+    "KEYCLOAK_ADMIN_PASSWORD": "__GENERATE_SECURE_OVERRIDE__",
+    "ESTORE_CLIENT_SECRET": "__GENERATE_SECURE_OVERRIDE__",
+    "PINGBIZ_MERCHANT_IDENTIFIER": "__REQUIRED_SECRET_OVERRIDE__",
+    "PINGBIZ_STORE_IDENTIFIER": "__REQUIRED_SECRET_OVERRIDE__",
+    "PINGBIZ_MERCHANT_API_KEY": "__REQUIRED_SECRET_OVERRIDE__",
+    "KIT_REPOSITORY_ROOT_PATH": "/merchant-store-vibe-coding-kit"
+  },
+  "argumentOverrides": {},
+  "options": {
+    "autorun": false,
+    "concurrencyPolicy": "forbid"
+  },
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "steps": [
+        {
+          "kind": "ResourceTag",
+          "ref": "tagKeycloak",
+          "spec": {
+            "name": "PingBusiness Keycloak",
+            "color": "#57637A",
+            "useSpotNodes": false,
+            "useOnDemandNodes": true
+          }
+        },
+        {
+          "kind": "ResourceTag",
+          "ref": "tagBootstrap",
+          "spec": {
+            "name": "PingBusiness Bootstrap",
+            "color": "#57637A",
+            "useSpotNodes": false,
+            "useOnDemandNodes": true
+          }
+        },
+        {
+          "kind": "ResourceTag",
+          "ref": "tagBackend",
+          "spec": {
+            "name": "PingBusiness Backend",
+            "color": "#57637A",
+            "useSpotNodes": false,
+            "useOnDemandNodes": true
+          }
+        },
+        {
+          "kind": "ResourceTag",
+          "ref": "tagUi",
+          "spec": {
+            "name": "PingBusiness Storefront",
+            "color": "#57637A",
+            "useSpotNodes": false,
+            "useOnDemandNodes": true
+          }
+        },
+        {
+          "kind": "ResourceTag",
+          "ref": "tagEdge",
+          "spec": {
+            "name": "PingBusiness Edge",
+            "color": "#57637A",
+            "useSpotNodes": false,
+            "useOnDemandNodes": true
+          }
+        },
+        {
+          "kind": "Project",
+          "ref": "project",
+          "spec": {
+            "name": "${args.PROJECT_NAME}",
+            "region": "${args.REGION}",
+            "networking": {
+              "allowedIngressProjects": []
+            }
+          }
+        },
+        {
+          "kind": "Workflow",
+          "spec": {
+            "type": "sequential",
+            "context": {
+              "projectId": "${refs.project.id}"
+            },
+            "steps": [
+              {
+                "kind": "Addon",
+                "ref": "database",
+                "spec": {
+                  "name": "Keycloak Database",
+                  "type": "postgresql",
+                  "version": "${args.POSTGRES_VERSION}",
+                  "externalAccessEnabled": false,
+                  "tlsEnabled": false,
+                  "customCredentials": {
+                    "dbName": "keycloak_db"
+                  },
+                  "billing": {
+                    "replicas": 1,
+                    "storage": "${args.POSTGRES_STORAGE_MB}",
+                    "storageClass": "nvme",
+                    "deploymentPlan": "${args.POSTGRES_PLAN}"
+                  }
+                }
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Addon",
+                  "spec": {
+                    "data": {
+                      "addonId": "${refs.database.id}"
+                    },
+                    "type": "running"
+                  }
+                }
+              },
+              {
+                "kind": "SecretGroup",
+                "ref": "keycloakSecrets",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {
+                      "KC_DB": "postgres",
+                      "KC_HTTP_ENABLED": "true",
+                      "KC_HTTP_MANAGEMENT_RELATIVE_PATH": "/",
+                      "KC_PROXY_HEADERS": "xforwarded",
+                      "KC_HOSTNAME": "https://${args.STORE_DOMAIN}/auth",
+                      "KC_HOSTNAME_BACKCHANNEL_DYNAMIC": "true",
+                      "KC_HEALTH_ENABLED": "true",
+                      "KC_METRICS_ENABLED": "true",
+                      "KC_CACHE": "local",
+                      "KC_BOOTSTRAP_ADMIN_USERNAME": "${args.KEYCLOAK_ADMIN_USERNAME}",
+                      "KC_BOOTSTRAP_ADMIN_PASSWORD": "${args.KEYCLOAK_ADMIN_PASSWORD}",
+                      "ESTORE_REALM": "${args.ESTORE_REALM}",
+                      "ESTORE_CLIENT_ID": "${args.ESTORE_CLIENT_ID}",
+                      "ESTORE_CLIENT_SECRET": "${args.ESTORE_CLIENT_SECRET}"
+                    },
+                    "files": {}
+                  },
+                  "name": "Keycloak Runtime",
+                  "restrictions": {
+                    "restricted": true,
+                    "nfObjects": [],
+                    "tags": [
+                      "${refs.tagKeycloak.id}"
+                    ]
+                  },
+                  "addonDependencies": [
+                    {
+                      "addonId": "${refs.database.id}",
+                      "keys": [
+                        {
+                          "keyName": "HOST",
+                          "aliases": [
+                            "KC_DB_URL_HOST"
+                          ]
+                        },
+                        {
+                          "keyName": "PORT",
+                          "aliases": [
+                            "KC_DB_URL_PORT"
+                          ]
+                        },
+                        {
+                          "keyName": "DATABASE",
+                          "aliases": [
+                            "KC_DB_URL_DATABASE"
+                          ]
+                        },
+                        {
+                          "keyName": "USERNAME",
+                          "aliases": [
+                            "KC_DB_USERNAME"
+                          ]
+                        },
+                        {
+                          "keyName": "PASSWORD",
+                          "aliases": [
+                            "KC_DB_PASSWORD"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "CombinedService",
+                "ref": "keycloak",
+                "spec": {
+                  "name": "Keycloak",
+                  "tags": [
+                    "${refs.tagKeycloak.id}"
+                  ],
+                  "billing": {
+                    "deploymentPlan": "${args.KEYCLOAK_PLAN}",
+                    "buildPlan": "${args.BUILD_PLAN}"
+                  },
+                  "deployment": {
+                    "instances": 1,
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "buildSource": "git",
+                  "vcsData": {
+                    "projectType": "github",
+                    "projectUrl": "${args.KIT_REPOSITORY_URL}",
+                    "projectBranch": "${args.KIT_REPOSITORY_BRANCH}"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 8080,
+                      "protocol": "HTTP",
+                      "name": "http",
+                      "public": false,
+                      "domains": [],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": false
+                    },
+                    {
+                      "internalPort": 9000,
+                      "protocol": "HTTP",
+                      "name": "management",
+                      "public": false,
+                      "domains": [],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": false
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "buildkit",
+                      "useCache": true,
+                      "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak",
+                      "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": true,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [
+                      "*.md",
+                      "docs/**"
+                    ],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": true
+                  },
+                  "disabledCI": true,
+                  "healthChecks": [
+                    {
+                      "protocol": "HTTP",
+                      "type": "startupProbe",
+                      "path": "/health/started",
+                      "port": 9000,
+                      "initialDelaySeconds": 20,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 30,
+                      "successThreshold": 1
+                    },
+                    {
+                      "protocol": "HTTP",
+                      "type": "readinessProbe",
+                      "path": "/health/ready",
+                      "port": 9000,
+                      "initialDelaySeconds": 20,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 12,
+                      "successThreshold": 1
+                    },
+                    {
+                      "protocol": "HTTP",
+                      "type": "livenessProbe",
+                      "path": "/health/live",
+                      "port": 9000,
+                      "initialDelaySeconds": 60,
+                      "periodSeconds": 20,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 6,
+                      "successThreshold": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Service",
+                  "spec": {
+                    "data": {
+                      "serviceId": "${refs.keycloak.id}"
+                    },
+                    "type": "running"
+                  }
+                }
+              },
+              {
+                "kind": "SecretGroup",
+                "ref": "bootstrapSecrets",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {
+                      "KC_BOOTSTRAP_ADMIN_USERNAME": "${args.KEYCLOAK_ADMIN_USERNAME}",
+                      "KC_BOOTSTRAP_ADMIN_PASSWORD": "${args.KEYCLOAK_ADMIN_PASSWORD}",
+                      "ESTORE_REALM": "${args.ESTORE_REALM}",
+                      "ESTORE_CLIENT_ID": "${args.ESTORE_CLIENT_ID}",
+                      "ESTORE_CLIENT_SECRET": "${args.ESTORE_CLIENT_SECRET}",
+                      "KC_SERVER_URL": "http://${refs.keycloak.ports.0.dns}:8080"
+                    },
+                    "files": {}
+                  },
+                  "name": "ESTORE Realm Bootstrap",
+                  "restrictions": {
+                    "restricted": true,
+                    "nfObjects": [],
+                    "tags": [
+                      "${refs.tagBootstrap.id}"
+                    ]
+                  }
+                }
+              },
+              {
+                "kind": "ManualJob",
+                "ref": "bootstrapJob",
+                "spec": {
+                  "name": "ESTORE Realm Bootstrap",
+                  "tags": [
+                    "${refs.tagBootstrap.id}"
+                  ],
+                  "billing": {
+                    "deploymentPlan": "${args.BOOTSTRAP_PLAN}",
+                    "buildPlan": "${args.BUILD_PLAN}"
+                  },
+                  "deployment": {
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "vcs": {
+                      "projectType": "github",
+                      "projectUrl": "${args.KIT_REPOSITORY_URL}",
+                      "projectBranch": "${args.KIT_REPOSITORY_BRANCH}"
+                    }
+                  },
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "buildkit",
+                      "useCache": true,
+                      "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak",
+                      "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak/realm-bootstrap/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": true,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [
+                      "*.md",
+                      "docs/**"
+                    ],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": true
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "disabledCI": true,
+                  "healthChecks": [],
+                  "settings": {
+                    "backoffLimit": 2,
+                    "runOnSourceChange": "never",
+                    "activeDeadlineSeconds": 900
+                  }
+                }
+              },
+              {
+                "kind": "JobRun",
+                "ref": "bootstrapRun",
+                "spec": {
+                  "jobId": "${refs.bootstrapJob.id}"
+                },
+                "condition": "success"
+              },
+              {
+                "kind": "SecretGroup",
+                "ref": "backendSecrets",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {
+                      "DEV_MODE": "false",
+                      "ESTORE_APP_PORT": "5000",
+                      "BIZ_APP_BASE_URL": "${args.BIZ_APP_BASE_URL}",
+                      "ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}/api",
+                      "PINGBIZ_MERCHANT_IDENTIFIER": "${args.PINGBIZ_MERCHANT_IDENTIFIER}",
+                      "PINGBIZ_STORE_IDENTIFIER": "${args.PINGBIZ_STORE_IDENTIFIER}",
+                      "PINGBIZ_MERCHANT_API_KEY": "${args.PINGBIZ_MERCHANT_API_KEY}",
+                      "ESTORE_KC_SERVER_URL": "http://${refs.keycloak.ports.0.dns}:8080",
+                      "ESTORE_REALM": "${args.ESTORE_REALM}",
+                      "ESTORE_CLIENT_ID": "${args.ESTORE_CLIENT_ID}",
+                      "ESTORE_CLIENT_SECRET": "${args.ESTORE_CLIENT_SECRET}",
+                      "ESTORE_ALLOWED_ORIGINS": "https://${args.STORE_DOMAIN}",
+                      "ESTORE_TRUST_PROXY_HEADERS": "true",
+                      "ESTORE_CHECKOUT_FRAME_ANCESTORS": "'self'",
+                      "GUNICORN_WORKERS": "2",
+                      "GUNICORN_THREADS": "4"
+                    },
+                    "files": {}
+                  },
+                  "name": "Merchant Store Backend",
+                  "restrictions": {
+                    "restricted": true,
+                    "nfObjects": [],
+                    "tags": [
+                      "${refs.tagBackend.id}"
+                    ]
+                  }
+                }
+              },
+              {
+                "kind": "CombinedService",
+                "ref": "estoreApp",
+                "spec": {
+                  "name": "Merchant Store API",
+                  "tags": [
+                    "${refs.tagBackend.id}"
+                  ],
+                  "billing": {
+                    "deploymentPlan": "${args.BACKEND_PLAN}",
+                    "buildPlan": "${args.BUILD_PLAN}"
+                  },
+                  "deployment": {
+                    "instances": 1,
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "buildSource": "git",
+                  "vcsData": {
+                    "projectType": "github",
+                    "projectUrl": "${args.KIT_REPOSITORY_URL}",
+                    "projectBranch": "${args.KIT_REPOSITORY_BRANCH}"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 5000,
+                      "protocol": "HTTP",
+                      "name": "http",
+                      "public": false,
+                      "domains": [],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": false
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "buildkit",
+                      "useCache": true,
+                      "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/source/estore-app",
+                      "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/source/estore-app/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": true,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [
+                      "*.md",
+                      "docs/**"
+                    ],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": true
+                  },
+                  "disabledCI": true,
+                  "healthChecks": [
+                    {
+                      "protocol": "HTTP",
+                      "type": "readinessProbe",
+                      "path": "/health",
+                      "port": 5000,
+                      "initialDelaySeconds": 20,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 12,
+                      "successThreshold": 1
+                    },
+                    {
+                      "protocol": "HTTP",
+                      "type": "livenessProbe",
+                      "path": "/health",
+                      "port": 5000,
+                      "initialDelaySeconds": 60,
+                      "periodSeconds": 20,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 6,
+                      "successThreshold": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Service",
+                  "spec": {
+                    "data": {
+                      "serviceId": "${refs.estoreApp.id}"
+                    },
+                    "type": "running"
+                  }
+                }
+              },
+              {
+                "kind": "SecretGroup",
+                "ref": "uiSecrets",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {
+                      "PINGBUSINESS_STORE_NAME": "${args.STORE_DISPLAY_NAME}",
+                      "PINGBUSINESS_SUPPORT_EMAIL": "${args.STORE_SUPPORT_EMAIL}",
+                      "ESTORE_APP_PUBLIC_URL": "/api"
+                    },
+                    "files": {}
+                  },
+                  "name": "Merchant Store UI",
+                  "restrictions": {
+                    "restricted": true,
+                    "nfObjects": [],
+                    "tags": [
+                      "${refs.tagUi.id}"
+                    ]
+                  }
+                }
+              },
+              {
+                "kind": "CombinedService",
+                "ref": "merchantStore",
+                "spec": {
+                  "name": "Merchant Store UI",
+                  "tags": [
+                    "${refs.tagUi.id}"
+                  ],
+                  "billing": {
+                    "deploymentPlan": "${args.UI_PLAN}",
+                    "buildPlan": "${args.BUILD_PLAN}"
+                  },
+                  "deployment": {
+                    "instances": 1,
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "buildSource": "git",
+                  "vcsData": {
+                    "projectType": "github",
+                    "projectUrl": "${args.UI_REPOSITORY_URL}",
+                    "projectBranch": "${args.UI_REPOSITORY_BRANCH}"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 80,
+                      "protocol": "HTTP",
+                      "name": "http",
+                      "public": false,
+                      "domains": [],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": false
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "buildkit",
+                      "useCache": true,
+                      "dockerWorkDir": "${args.UI_DOCKER_WORK_DIR}",
+                      "dockerFilePath": "${args.UI_DOCKERFILE_PATH}",
+                      "buildkit": {
+                        "useInternalCache": true,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [
+                      "*.md",
+                      "docs/**"
+                    ],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": true
+                  },
+                  "disabledCI": true,
+                  "healthChecks": [
+                    {
+                      "protocol": "HTTP",
+                      "type": "readinessProbe",
+                      "path": "/healthz",
+                      "port": 80,
+                      "initialDelaySeconds": 10,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 6,
+                      "successThreshold": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Service",
+                  "spec": {
+                    "data": {
+                      "serviceId": "${refs.merchantStore.id}"
+                    },
+                    "type": "running"
+                  }
+                }
+              },
+              {
+                "kind": "CombinedService",
+                "ref": "edge",
+                "spec": {
+                  "name": "Merchant Store Edge",
+                  "tags": [
+                    "${refs.tagEdge.id}"
+                  ],
+                  "billing": {
+                    "deploymentPlan": "${args.EDGE_PLAN}",
+                    "buildPlan": "${args.BUILD_PLAN}"
+                  },
+                  "deployment": {
+                    "instances": 1,
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    }
+                  },
+                  "runtimeEnvironment": {
+                    "PUBLIC_HOST": "${args.STORE_DOMAIN}",
+                    "PUBLIC_SCHEME": "https",
+                    "PUBLIC_PORT": "443",
+                    "ESTORE_APP_UPSTREAM": "${refs.estoreApp.ports.0.dns}:5000",
+                    "KEYCLOAK_UPSTREAM": "${refs.keycloak.ports.0.dns}:8080",
+                    "MERCHANT_STORE_UPSTREAM": "${refs.merchantStore.ports.0.dns}:80"
+                  },
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "buildSource": "git",
+                  "vcsData": {
+                    "projectType": "github",
+                    "projectUrl": "${args.KIT_REPOSITORY_URL}",
+                    "projectBranch": "${args.KIT_REPOSITORY_BRANCH}"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 8080,
+                      "protocol": "HTTP",
+                      "name": "https",
+                      "public": true,
+                      "domains": [
+                        "${args.STORE_DOMAIN}"
+                      ],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": true
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "buildkit",
+                      "useCache": true,
+                      "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/deployment/edge",
+                      "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/deployment/edge/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": true,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [
+                      "*.md",
+                      "docs/**"
+                    ],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": true
+                  },
+                  "disabledCI": true,
+                  "healthChecks": [
+                    {
+                      "protocol": "HTTP",
+                      "type": "readinessProbe",
+                      "path": "/edge-health",
+                      "port": 8080,
+                      "initialDelaySeconds": 10,
+                      "periodSeconds": 10,
+                      "timeoutSeconds": 5,
+                      "failureThreshold": 6,
+                      "successThreshold": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "kind": "Condition",
+                "spec": {
+                  "kind": "Service",
+                  "spec": {
+                    "data": {
+                      "serviceId": "${refs.edge.id}"
+                    },
+                    "type": "running"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

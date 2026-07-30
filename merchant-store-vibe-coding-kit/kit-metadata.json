@@ -1,0 +1,28 @@
+{
+  "name": "Ping Business Merchant Store Vibe Coding Kit",
+  "version": "1.0.0-rc3",
+  "license": "Apache-2.0",
+  "repository": {
+    "url": "https://github.com/PingBusiness/PingBusiness",
+    "branch": "main",
+    "rootPath": "/merchant-store-vibe-coding-kit",
+    "treeUrl": "https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit",
+    "agentEntrypointUrl": "https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md"
+  },
+  "release": {
+    "stableAssetName": "pingbusiness-merchant-store-vibe-coding-kit.zip",
+    "latestStableAssetUrl": "https://github.com/PingBusiness/PingBusiness/releases/latest/download/pingbusiness-merchant-store-vibe-coding-kit.zip",
+    "releaseCandidateTag": "merchant-store-vibe-kit-v1.0.0-rc3"
+  },
+  "supportedPlatforms": [
+    "compose",
+    "railway",
+    "coolify",
+    "qovery",
+    "northflank"
+  ],
+  "pingBusinessEnvironments": {
+    "staging": "https://biz-app.staging.pingbusiness.org",
+    "production": "https://biz-app.pingbusiness.org"
+  }
+}

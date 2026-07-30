@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!Caddyfile.compose
+!Caddyfile.platform
+!routes.caddy

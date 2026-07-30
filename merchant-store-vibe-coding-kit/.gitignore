@@ -1,0 +1,17 @@
+.generated/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.auto.tfvars.json
+.env
+.env.*
+!*.env.example
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+
+.venv/

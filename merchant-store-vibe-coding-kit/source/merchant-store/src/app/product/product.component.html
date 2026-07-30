@@ -1,0 +1,112 @@
+<nav class="breadcrumb">
+  <a routerLink="/">Home</a>
+  <span class="sep">/</span>
+  <a routerLink="/catalog">Products</a>
+  <span class="sep">/</span>
+  <span class="current">{{ product?.name }}</span>
+</nav>
+
+<div *ngIf="loading" class="loading-card">Loading product…</div>
+
+<div *ngIf="!loading && !product" class="empty-state">
+  This product could not be loaded. <a routerLink="/catalog">Back to products</a>.
+</div>
+
+<section *ngIf="!loading && product" class="product-detail">
+  <div class="media-column">
+    <div class="carousel">
+      <div class="detail-art">
+        <img *ngIf="selectedImageUrl; else productPlaceholder" [src]="selectedImageUrl" [alt]="selectedImage?.name || product.name || 'Product image'">
+        <ng-template #productPlaceholder>
+          <span>{{ (product.name || '?').slice(0, 1) }}</span>
+        </ng-template>
+
+        <button *ngIf="images.length > 1" type="button" class="carousel-arrow left" (click)="prevImage()" aria-label="Previous image">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.10861 6.27593C7.35269 6.03185 7.35269 5.63612 7.10861 5.39204C6.86453 5.14796 6.4688 5.14796 6.22473 5.39204L2.05806 9.55871C1.81398 9.80279 1.81398 10.1985 2.05806 10.4426L6.22473 14.6093C6.4688 14.8533 6.86453 14.8533 7.10861 14.6093C7.35269 14.3652 7.35269 13.9695 7.10861 13.7254L4.00888 10.6257H17.5C17.8452 10.6257 18.125 10.3458 18.125 10.0007C18.125 9.65547 17.8452 9.37565 17.5 9.37565H4.00888L7.10861 6.27593Z"/>
+          </svg>
+        </button>
+        <button *ngIf="images.length > 1" type="button" class="carousel-arrow right" (click)="nextImage()" aria-label="Next image">
+          <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12.8914 6.27593C12.6473 6.03185 12.6473 5.63612 12.8914 5.39204C13.1355 5.14796 13.5312 5.14796 13.7753 5.39204L17.9419 9.55871C18.186 9.80279 18.186 10.1985 17.9419 10.4426L13.7753 14.6093C13.5312 14.8533 13.1355 14.8533 12.8914 14.6093C12.6473 14.3652 12.6473 13.9695 12.8914 13.7254L15.9911 10.6257H2.5C2.15482 10.6257 1.875 10.3458 1.875 10.0007C1.875 9.65547 2.15482 9.37565 2.5 9.37565H15.9911L12.8914 6.27593Z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div *ngIf="!mediaLoading && images.length > 1" class="thumbnail-row" aria-label="Product images">
+        <button
+          *ngFor="let image of images"
+          type="button"
+          class="thumbnail-button"
+          [class.active]="isSelectedImage(image)"
+          (click)="selectImage(image)">
+          <img *ngIf="imageUrl(image); else thumbPlaceholder" [src]="imageUrl(image)" [alt]="image.name || 'Product image'">
+          <ng-template #thumbPlaceholder>
+            <span>{{ (image.name || '?').slice(0, 1) }}</span>
+          </ng-template>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-info">
+    <h1 class="detail-title">{{ product.name }}</h1>
+
+    <div class="detail-content">
+      <div class="detail-price-block">
+        <div class="detail-price-row">
+          <span class="detail-price">{{ price() }}</span>
+          <span class="detail-type">
+            {{ isSubscription() ? 'Subscription' : 'One-time payment' }}
+            <svg *ngIf="!isSubscription()" class="pay-icon" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M1.3335 0.833984C1.05735 0.833984 0.833496 1.05784 0.833496 1.33398C0.833496 1.61013 1.05735 1.83398 1.3335 1.83398H2.12143C2.37272 1.83398 2.58497 2.0205 2.61728 2.26971L3.52036 9.23633C3.55095 9.47229 3.62553 9.69293 3.73522 9.89041C3.02397 10.0806 2.50016 10.7294 2.50016 11.5007C2.50016 12.4211 3.24636 13.1673 4.16683 13.1673H4.25218C4.19691 13.3237 4.16683 13.492 4.16683 13.6673C4.16683 14.4957 4.8384 15.1673 5.66683 15.1673C6.49526 15.1673 7.16683 14.4957 7.16683 13.6673C7.16683 13.492 7.13675 13.3237 7.08148 13.1673H10.9188C10.8636 13.3237 10.8335 13.492 10.8335 13.6673C10.8335 14.4957 11.5051 15.1673 12.3335 15.1673C13.1619 15.1673 13.8335 14.4957 13.8335 13.6673C13.8335 13.492 13.8034 13.3237 13.7481 13.1673H14.0002C14.2763 13.1673 14.5002 12.9435 14.5002 12.6673C14.5002 12.3912 14.2763 12.1673 14.0002 12.1673H4.16683C3.79864 12.1673 3.50016 11.8688 3.50016 11.5007C3.50016 11.1325 3.79864 10.834 4.16683 10.834H12.4932C13.6056 10.834 14.5373 9.99161 14.6489 8.88485L15.1636 3.78445C15.233 3.09729 14.6935 2.50065 14.0028 2.50065H3.65558L3.60898 2.14115C3.51206 1.39353 2.87531 0.833984 2.12143 0.833984H1.3335ZM12.3335 13.1673C12.0574 13.1673 11.8335 13.3912 11.8335 13.6673C11.8335 13.9435 12.0574 14.1673 12.3335 14.1673C12.6096 14.1673 12.8335 13.9435 12.8335 13.6673C12.8335 13.3912 12.6096 13.1673 12.3335 13.1673ZM5.16683 13.6673C5.16683 13.3912 5.39069 13.1673 5.66683 13.1673C5.94297 13.1673 6.16683 13.3912 6.16683 13.6673C6.16683 13.9435 5.94297 14.1673 5.66683 14.1673C5.39069 14.1673 5.16683 13.9435 5.16683 13.6673ZM12.4932 9.83398C13.0922 9.83398 13.5938 9.3804 13.654 8.78445L14.1687 3.68405C14.1786 3.58589 14.1015 3.50065 14.0028 3.50065H3.78521L4.51206 9.10778C4.5659 9.52313 4.91966 9.83398 5.33848 9.83398H12.4932Z"/>
+            </svg>
+            <svg *ngIf="isSubscription()" class="pay-icon" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.00081 14.1673C10.9836 14.1673 13.4728 12.0491 14.0441 9.23452C14.099 8.96389 14.363 8.78904 14.6336 8.84398C14.9042 8.89891 15.0791 9.16283 15.0241 9.43345C14.3601 12.7049 11.4686 15.1673 8.00081 15.1673C5.37614 15.1673 3.08189 13.7565 1.8335 11.653L1.8335 13.334C1.8335 13.6101 1.60964 13.834 1.3335 13.834C1.05735 13.834 0.833496 13.6101 0.833496 13.334L0.833496 10.334C0.833496 10.0578 1.05735 9.83398 1.3335 9.83398H1.74217C1.74995 9.8338 1.75772 9.8338 1.76546 9.83398H4.3335C4.60964 9.83398 4.8335 10.0578 4.8335 10.334C4.8335 10.6101 4.60964 10.834 4.3335 10.834H2.522C3.54844 12.8147 5.61718 14.1673 8.00081 14.1673Z"/>
+              <path d="M1.95678 6.76678C2.5281 3.95223 5.01728 1.83398 8.00008 1.83398C10.3837 1.83398 12.4525 3.18657 13.4789 5.16732L11.6671 5.16732C11.3909 5.16732 11.1671 5.39117 11.1671 5.66732C11.1671 5.94346 11.3909 6.16732 11.6671 6.16732H14.2355C14.2432 6.1675 14.2509 6.1675 14.2587 6.16732H14.6674C14.8 6.16732 14.9272 6.11463 15.021 6.02085C15.1147 5.92707 15.1674 5.79988 15.1674 5.66726L15.1671 2.66726C15.167 2.39112 14.9432 2.16729 14.667 2.16732C14.3909 2.16735 14.167 2.39123 14.1671 2.66737L14.1673 4.34807C12.9188 2.24464 10.6247 0.833985 8.00008 0.833984C4.53233 0.833984 1.64083 3.29643 0.976767 6.56785C0.921832 6.83848 1.09668 7.10239 1.36731 7.15732C1.63793 7.21226 1.90185 7.03741 1.95678 6.76678Z"/>
+            </svg>
+          </span>
+        </div>
+        <p class="detail-blurb">{{ description() }}</p>
+      </div>
+
+      <div *ngIf="isSubscription()" class="subscription-facts">
+        <div><span>Billing schedule</span><strong>{{ planLabel() }}</strong></div>
+        <div><span>First scheduled charge</span><strong>{{ firstChargeDate() }} (HK time)</strong></div>
+        <div><span>Planned total per unit</span><strong>{{ plannedTotal() }}</strong></div>
+        <div><span>Card method</span><strong>Credit Card required</strong></div>
+      </div>
+      <p *ngIf="isSubscription()" class="subscription-note">
+        Checkout verifies your card first. The first recurring charge is scheduled for the next Hong Kong calendar day; it is not charged during verification.
+      </p>
+
+      <p *ngIf="inventory?.quantity === 0" class="inventory-line out">Currently unavailable</p>
+
+      <div class="detail-actions">
+        <!-- Out of stock / no inventory: one disabled "Unavailable" action. -->
+        <button *ngIf="isUnavailable()" type="button" class="pill" disabled>Unavailable</button>
+        <ng-container *ngIf="!isUnavailable()">
+          <ng-container *ngIf="!isSubscription()">
+            <button type="button" class="outline pill" (click)="buyNow()">Buy Now</button>
+            <button type="button" class="pill" (click)="addToCart()">Add to Cart</button>
+          </ng-container>
+          <button *ngIf="isSubscription()" type="button" class="pill sub-btn" (click)="subscribeNow()">Subscribe Now</button>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section *ngIf="!loading && product && productFiles.length" class="product-files">
+  <h2>Product files</h2>
+  <div class="file-list">
+    <button *ngFor="let file of productFiles" type="button" class="file-chip" (click)="downloadFile(file)">
+      <span class="file-name">{{ file.name }}</span>
+      <span class="file-meta">{{ file.mime_type || 'file' }} <ng-container *ngIf="fileSize(file)">· {{ fileSize(file) }}</ng-container></span>
+    </button>
+  </div>
+</section>
+
+<section *ngIf="!loading && product && descriptionFull()" class="detail-description-block">
+  <p>{{ descriptionFull() }}</p>
+</section>

@@ -1,0 +1,79 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Subscribe Now</p>
+    <h1>Subscription checkout</h1>
+    <p class="muted">This checkout contains one subscription product. It bypasses the shopping cart.</p>
+  </div>
+  <a *ngIf="product && !completed" [routerLink]="['/product', product.id]">Back to product</a>
+</section>
+
+<app-message type="error" [message]="error"></app-message>
+<app-message type="success" [message]="notice"></app-message>
+
+<div *ngIf="loadingProduct" class="loading-card">Loading subscription...</div>
+
+<section *ngIf="!loadingProduct && product" class="subscription-grid">
+  <section class="card checkout-card">
+    <div *ngIf="!checkoutStarted && !completed" class="start-panel">
+      <h2>Confirm subscription</h2>
+      <div class="card-method-note">
+        <strong>Credit Card verification</strong>
+        <span>Click "Verify Card Details" to subscribe. The first payment will be scheduled on {{ firstChargeDate() }}.</span>
+      </div>
+      <label class="quantity-field">
+        Quantity
+        <input type="number" min="1" [attr.max]="available || null" [(ngModel)]="quantity">
+      </label>
+      <p *ngIf="quantityExceedsStock()" class="error-text">The requested quantity is unavailable.</p>
+      <button type="button" (click)="startSubscription()" [disabled]="starting || quantityExceedsStock() || available <= 0">
+        {{ starting ? 'Starting secure verification...' : 'Verify Card Details' }}
+      </button>
+    </div>
+
+    <div *ngIf="checkoutStarted && !completed" class="checkout-progress">
+      <h2>Subscription progress</h2>
+      <ol>
+        <li [class.active]="currentStageIndex() === 1" [class.done]="currentStageIndex() > 1">Verify card</li>
+        <li [class.active]="currentStageIndex() === 2" [class.done]="currentStageIndex() > 2">Create schedule</li>
+        <li [class.active]="currentStageIndex() === 3">Complete</li>
+      </ol>
+      <p class="progress-status">{{ recurringStatusLabel() }}</p>
+    </div>
+
+    <div *ngIf="starting" class="payment-loading">Preparing secure card verification...</div>
+
+    <div *ngIf="checkoutStarted && externalCheckoutUrl && !completed" class="secure-window-panel">
+      <strong>Secure PaymentAsia window</strong>
+      <span *ngIf="secureWindowOpen()">The secure window is open. Complete card verification there.</span>
+      <span *ngIf="!secureWindowOpen()">The secure window is not open. Reopen it to continue.</span>
+      <button type="button" class="secondary" (click)="reopenSecureWindow()">Open secure verification</button>
+    </div>
+
+    <iframe
+      #checkoutFrame
+      *ngIf="checkoutFrameUrl"
+      class="payment-frame"
+      [src]="checkoutFrameUrl"
+      title="Secure subscription card verification"
+      sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation">
+    </iframe>
+
+    <div *ngIf="completed" class="completion-actions">
+      <p *ngIf="orderId">Order ID: <strong>{{ orderId }}</strong></p>
+      <p *ngIf="paymentReference">Subscription checkout reference: <strong>{{ paymentReference }}</strong></p>
+      <a class="button-link" routerLink="/subscriptions">View subscriptions</a>
+      <a class="button-link secondary" routerLink="/catalog">Continue shopping</a>
+    </div>
+  </section>
+
+  <aside class="card subscription-summary">
+    <p class="eyebrow">Single-product subscription</p>
+    <h2>{{ product.name }}</h2>
+    <div class="summary-row"><span>Quantity</span><strong>{{ quantity }}</strong></div>
+    <div class="summary-row"><span>Schedule</span><strong>{{ planLabel() }}</strong></div>
+    <div class="summary-row"><span>Amount per payment</span><strong>{{ amountPerPayment() }}</strong></div>
+    <div class="summary-row"><span>First scheduled payment</span><strong>{{ firstChargeDate() }}</strong></div>
+    <div class="summary-row total"><span>Planned commitment</span><strong>{{ plannedCommitment() }}</strong></div>
+    <p class="muted small-text">A successful checkout creates one order with exactly one recurring order item and one PaymentAsia schedule.</p>
+  </aside>
+</section>

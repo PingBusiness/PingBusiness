@@ -1,0 +1,87 @@
+<nav class="breadcrumb">
+  <a routerLink="/">Home</a>
+  <span class="sep">/</span>
+  <a routerLink="/orders">Orders</a>
+  <span class="sep">/</span>
+  <span class="current">Order #{{ order?.id }}</span>
+</nav>
+
+<div *ngIf="loading" class="loading-card">Loading order…</div>
+
+<div *ngIf="!loading && !order" class="empty-state">
+  This order could not be loaded. <a routerLink="/orders">Back to orders</a>.
+</div>
+
+<section *ngIf="!loading && order" class="order-detail">
+  <div class="order-head">
+    <h1>Order #{{ order.id }}</h1>
+    <span class="status-pill" [ngClass]="(order.status || '').toLowerCase()">{{ statusLabel(order.status) }}</span>
+  </div>
+
+  <div class="panel">
+    <div class="fact-grid">
+      <div><span>Order type</span><strong>{{ orderKindLabel() }}</strong></div>
+      <div><span>{{ hasSubscriptions() ? 'Amount per payment' : 'Order total' }}</span><strong>{{ orderAmount() }}</strong></div>
+      <div *ngIf="hasSubscriptions()"><span>Planned commitment</span><strong>{{ plannedCommitment() }}</strong></div>
+      <div><span>Created</span><strong>{{ order.created_at || '—' }}</strong></div>
+      <div><span>Store</span><strong>{{ order.store_id }}</strong></div>
+      <div><span>Reference</span><strong>{{ order.identifier || 'Order #' + order.id }}</strong></div>
+    </div>
+    <p class="muted small-text">Orders are created at checkout and are read-only in the storefront.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><span class="panel-mark"></span> Products</div>
+    <div *ngIf="items.length === 0" class="muted">No order items returned.</div>
+    <div class="order-item-list" *ngIf="items.length > 0">
+      <article class="order-item" *ngFor="let item of items">
+        <div class="item-head">
+          <div>
+            <span class="item-type">{{ isSubscription(item) ? 'Subscription' : 'One-time payment' }}</span>
+            <a class="item-name" [routerLink]="['/product', item.product_id]">Product #{{ item.product_id }}</a>
+          </div>
+          <strong class="item-amount">{{ itemAmount(item) }}<small *ngIf="isSubscription(item)"> / payment</small></strong>
+        </div>
+
+        <div class="item-facts">
+          <div><span>Quantity</span><strong>{{ item.quantity }}</strong></div>
+          <div><span>Unit amount</span><strong>{{ item.unit_amount }}</strong></div>
+          <div><span>Delivery</span><strong>{{ itemStateLabel(item) }}</strong></div>
+          <div><span>Updated</span><strong>{{ item.updated_at ? (item.updated_at | date:'medium') : '—' }}</strong></div>
+        </div>
+
+        <section *ngIf="isSubscription(item)" class="subscription-details">
+          <div class="item-facts">
+            <div><span>Schedule</span><strong>{{ planLabel(item) }}</strong></div>
+            <div><span>First charge</span><strong>{{ recurringStartDate(item) }} (HK time)</strong></div>
+            <div><span>Status</span><strong class="status-pill" [ngClass]="(item.recurring_status || '').toLowerCase()">{{ recurringStatusLabel(item) }}</strong></div>
+            <div><span>Current amount</span><strong>{{ currentSubscriptionAmount(item) }}</strong></div>
+            <div class="ref-cell"><span>Subscription reference</span><strong class="reference-text">{{ item.recurring_merchant_reference || 'Not available' }}</strong></div>
+          </div>
+          <p class="muted small-text">Subscription changes and cancellation are managed by the merchant. Provide the reference shown above.</p>
+        </section>
+      </article>
+    </div>
+  </div>
+
+  <div class="panel" *ngIf="!hasSubscriptions()">
+    <div class="panel-title"><span class="panel-mark"></span> Payment records</div>
+    <div *ngIf="payments.length === 0" class="muted">No payment records returned.</div>
+    <div class="data-panel-inner" *ngIf="payments.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr><th>ID</th><th>Status</th><th>Amount</th><th>Reference</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let payment of payments">
+            <td>{{ payment.id }}</td>
+            <td><span class="status-pill" [ngClass]="(payment.status || '').toLowerCase()">{{ statusLabel(payment.status) }}</span></td>
+            <td>{{ paymentAmount(payment) }}</td>
+            <td>{{ payment.reference }}</td>
+            <td>{{ payment.created_at }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

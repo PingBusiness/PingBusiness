@@ -1,0 +1,26 @@
+# Ping Business Merchant Store Vibe Coding Kit
+
+Purpose: customize and deploy a merchant-hosted Ping Business store through a
+conversational AI workflow.
+
+Public kit: https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit
+Agent entry point: https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md
+Design workflow: design/DESIGN_AGENT.md
+Design governing prompt: prompts/DESIGN_PROMPT.md
+Deployment workflow: deployment/DEPLOY_AGENT.md
+Deployment governing prompt: prompts/DEPLOY_PROMPT.md
+Deployment input schema: deployment/deployment-input.schema.json
+Deployment output schema: deployment/deployment-output.schema.json
+Architecture: docs/ARCHITECTURE.md
+Security: docs/SECURITY.md
+Canonical backend behavior: source/estore-app/app.py
+API specification: docs/ESTORE_APP_API_SPEC.md
+
+Default public contract:
+  https://<store-domain>/       merchant UI
+  https://<store-domain>/api    estore-app through the private edge
+  https://<store-domain>/auth   Keycloak through the private edge
+
+Never place merchant credentials, API keys, client secrets, database
+credentials, administrative credentials, or DNS/hosting tokens in browser code
+or public reports.

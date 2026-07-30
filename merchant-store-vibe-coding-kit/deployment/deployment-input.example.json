@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "deploymentName": "example-store",
+  "platform": "railway",
+  "pingbusinessEnvironment": "staging",
+  "region": "ca-central",
+  "storeDomain": "shop.example.com",
+  "acmeEmail": "ops@example.com",
+  "storeDisplayName": "Example Store",
+  "storeSupportEmail": "support@example.com",
+  "merchantIdentifier": "REPLACE_WITH_MERCHANT_IDENTIFIER",
+  "storeIdentifier": "REPLACE_WITH_STORE_IDENTIFIER",
+  "merchantApiKey": "REPLACE_WITH_MERCHANT_API_KEY",
+  "kitRepository": {
+    "url": "https://github.com/PingBusiness/PingBusiness",
+    "branch": "main",
+    "rootPath": "/merchant-store-vibe-coding-kit"
+  },
+  "uiSource": {
+    "mode": "bundled"
+  },
+  "keycloak": {
+    "realm": "ESTORE",
+    "clientId": "estore-app",
+    "adminUsername": "admin",
+    "bruteForceProtection": false
+  },
+  "database": {
+    "mode": "MANAGED",
+    "version": "16",
+    "storageGb": 20
+  },
+  "dns": {
+    "mode": "manual",
+    "useCdnProxy": false
+  },
+  "platformParameters": {
+    "railway": {
+      "projectName": "example-store",
+      "environmentName": "production"
+    },
+    "coolify": {
+      "applicationName": "example-store",
+      "environmentName": "production"
+    }
+  }
+}

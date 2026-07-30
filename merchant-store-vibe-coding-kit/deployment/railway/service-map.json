@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "publicService": "edge",
+  "customDomainService": "edge",
+  "services": [
+    {
+      "name": "postgres",
+      "type": "railway-postgresql",
+      "public": false,
+      "notes": "Provision Railway PostgreSQL and expose PG* variables only to private services."
+    },
+    {
+      "name": "keycloak",
+      "type": "docker",
+      "sourceRoot": "/merchant-store-vibe-coding-kit/keycloak",
+      "dockerfilePath": "Dockerfile",
+      "public": false,
+      "healthcheckPath": "/health/ready",
+      "variables": [
+        "KC_DB",
+        "KC_DB_URL",
+        "KC_DB_USERNAME",
+        "KC_DB_PASSWORD",
+        "KC_BOOTSTRAP_ADMIN_USERNAME",
+        "KC_BOOTSTRAP_ADMIN_PASSWORD",
+        "KC_HTTP_ENABLED",
+        "KC_HOSTNAME",
+        "KC_HOSTNAME_BACKCHANNEL_DYNAMIC",
+        "KC_PROXY_HEADERS",
+        "KC_HEALTH_ENABLED",
+        "KC_METRICS_ENABLED",
+        "KC_CACHE",
+        "ESTORE_REALM",
+        "ESTORE_CLIENT_ID",
+        "ESTORE_CLIENT_SECRET"
+      ]
+    },
+    {
+      "name": "keycloak-realm-bootstrap",
+      "type": "docker-one-shot",
+      "sourceRoot": "/merchant-store-vibe-coding-kit/keycloak",
+      "dockerfilePath": "realm-bootstrap/Dockerfile",
+      "public": false,
+      "dependsOn": [
+        "keycloak"
+      ],
+      "variables": [
+        "KC_SERVER_URL",
+        "KC_BOOTSTRAP_ADMIN_USERNAME",
+        "KC_BOOTSTRAP_ADMIN_PASSWORD",
+        "ESTORE_REALM",
+        "ESTORE_CLIENT_ID",
+        "ESTORE_CLIENT_SECRET",
+        "BOOTSTRAP_TIMEOUT_SECONDS",
+        "VERIFY_TIMEOUT_SECONDS"
+      ]
+    },
+    {
+      "name": "estore-app",
+      "type": "docker",
+      "sourceRoot": "/merchant-store-vibe-coding-kit/source/estore-app",
+      "dockerfilePath": "Dockerfile",
+      "public": false,
+      "dependsOn": [
+        "keycloak-realm-bootstrap"
+      ],
+      "healthcheckPath": "/health",
+      "variables": [
+        "DEV_MODE",
+        "ESTORE_APP_PORT",
+        "BIZ_APP_BASE_URL",
+        "ESTORE_PUBLIC_BASE_URL",
+        "PINGBIZ_MERCHANT_IDENTIFIER",
+        "PINGBIZ_STORE_IDENTIFIER",
+        "PINGBIZ_MERCHANT_API_KEY",
+        "ESTORE_KC_SERVER_URL",
+        "ESTORE_REALM",
+        "ESTORE_CLIENT_ID",
+        "ESTORE_CLIENT_SECRET",
+        "ESTORE_ALLOWED_ORIGINS",
+        "ESTORE_TRUST_PROXY_HEADERS",
+        "ESTORE_CHECKOUT_FRAME_ANCESTORS",
+        "GUNICORN_WORKERS",
+        "GUNICORN_THREADS",
+        "GUNICORN_TIMEOUT"
+      ]
+    },
+    {
+      "name": "merchant-store",
+      "type": "docker",
+      "sourceRoot": "/merchant-store-vibe-coding-kit/source/merchant-store",
+      "dockerfilePath": "Dockerfile",
+      "public": false,
+      "variables": [
+        "ESTORE_APP_PUBLIC_URL"
+      ]
+    },
+    {
+      "name": "edge",
+      "type": "docker",
+      "sourceRoot": "/merchant-store-vibe-coding-kit/deployment/edge",
+      "dockerfilePath": "Dockerfile",
+      "public": true,
+      "containerPort": 8080,
+      "healthcheckPath": "/edge-health",
+      "variables": [
+        "PUBLIC_HOST",
+        "PUBLIC_SCHEME",
+        "PUBLIC_PORT",
+        "ESTORE_APP_UPSTREAM",
+        "KEYCLOAK_UPSTREAM",
+        "MERCHANT_STORE_UPSTREAM"
+      ]
+    }
+  ],
+  "privateDnsHints": {
+    "keycloak": "http://keycloak.railway.internal:8080",
+    "estoreAppUpstream": "estore-app.railway.internal:5000",
+    "merchantStoreUpstream": "merchant-store.railway.internal:80"
+  },
+  "repository": {
+    "url": "https://github.com/PingBusiness/PingBusiness",
+    "branch": "main",
+    "kitRootPath": "/merchant-store-vibe-coding-kit"
+  }
+}

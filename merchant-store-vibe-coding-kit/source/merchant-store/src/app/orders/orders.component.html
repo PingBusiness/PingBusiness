@@ -1,0 +1,99 @@
+<nav class="account-tabs">
+  <a routerLink="/account" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">General</a>
+  <a routerLink="/orders" routerLinkActive="active">Orders</a>
+  <a routerLink="/subscriptions" routerLinkActive="active">Subscriptions</a>
+</nav>
+
+<h1 class="account-title">All Orders</h1>
+
+<div *ngIf="loading" class="loading-card">Loading orders…</div>
+
+<div *ngIf="!loading" class="history-card">
+  <div class="card-title"><span class="card-mark"></span> Order History</div>
+  <div class="card-divider"></div>
+
+  <p *ngIf="filteredOrders().length === 0" class="no-data">No Data</p>
+
+  <div *ngIf="filteredOrders().length > 0" class="table-wrap">
+    <div class="ot-table">
+      <div class="ot-row ot-head">
+        <div class="ot-cell ot-id">Order ID</div>
+        <div class="ot-cell ot-products">Products</div>
+        <div class="ot-cell ot-amount">Total Amount</div>
+        <div class="ot-cell ot-date">Date</div>
+        <div class="ot-cell ot-status">Payment Status</div>
+        <div class="ot-cell ot-cta"></div>
+      </div>
+
+      <div class="ot-row" *ngFor="let order of filteredOrders(); let i = index" [class.alt]="i % 2 === 1">
+        <div class="ot-cell ot-id">{{ order.identifier || order.id }}</div>
+        <div class="ot-cell ot-products" [title]="productsLabel(order)">{{ productsLabel(order) }}</div>
+        <div class="ot-cell ot-amount">{{ recordedAmount(order) }}</div>
+        <div class="ot-cell ot-date">{{ order.created_at ? (order.created_at | date:'MMM d | HH:mm') : '—' }}</div>
+        <div class="ot-cell ot-status">
+          <span class="ot-status-text" [ngClass]="(order.status || '').toLowerCase()">{{ statusLabel(order.status) }}</span>
+        </div>
+        <div class="ot-cell ot-cta">
+          <button type="button" class="ot-kebab" (click)="toggleMenu(order.id, $event)" aria-label="Order actions">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+          </button>
+          <div class="row-menu" *ngIf="openMenuId === order.id" (click)="$event.stopPropagation()">
+            <button type="button" class="row-menu-item" (click)="openDetail(order, $event)">View Details</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Details modal (design 1156-33222) -->
+<div class="od-backdrop" *ngIf="detailOrder" (click)="closeDetail()">
+  <div class="od-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="od-close-row">
+      <button type="button" class="od-close" (click)="closeDetail()" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M18.4697 19.5303C18.7626 19.8232 19.2374 19.8232 19.5303 19.5303C19.8232 19.2374 19.8232 18.7626 19.5303 18.4697L13.0607 12L19.5303 5.53033C19.8232 5.23744 19.8232 4.76256 19.5303 4.46967C19.2374 4.17678 18.7626 4.17678 18.4697 4.46967L12 10.9393L5.53033 4.46967C5.23744 4.17678 4.76256 4.17678 4.46967 4.46967C4.17678 4.76256 4.17678 5.23744 4.46967 5.53033L10.9393 12L4.46967 18.4697C4.17678 18.7626 4.17678 19.2374 4.46967 19.5303C4.76256 19.8232 5.23744 19.8232 5.53033 19.5303L12 13.0607L18.4697 19.5303Z"/></svg>
+      </button>
+    </div>
+
+    <div class="od-main">
+      <h2 class="od-title">Order ID {{ detailOrder.identifier || detailOrder.id }}</h2>
+
+      <div class="od-info">
+        <div class="od-line">
+          <span class="od-label">Order date</span>
+          <span class="od-value">{{ detailOrder.created_at ? (detailOrder.created_at | date:'MMM d | HH:mm') : '—' }}</span>
+        </div>
+        <div class="od-line">
+          <span class="od-label">Payment method</span>
+          <span class="od-value">{{ paymentMethod(detailOrder) }}</span>
+        </div>
+        <div class="od-line">
+          <span class="od-label">Total amount</span>
+          <span class="od-value">{{ recordedAmount(detailOrder) }}</span>
+        </div>
+        <div class="od-line">
+          <span class="od-label">Payment status</span>
+          <span class="od-value ot-status-text" [ngClass]="(detailOrder.status || '').toLowerCase()">{{ statusLabel(detailOrder.status) }}</span>
+        </div>
+      </div>
+
+      <div class="od-products">
+        <p class="od-products-title">Products in this order</p>
+        <div class="od-products-list">
+          <div class="od-product" *ngFor="let item of detailItems()">
+            <div class="od-thumb">
+              <img *ngIf="detailImage(item)" [src]="detailImage(item)" alt="">
+              <span *ngIf="!detailImage(item)" class="od-thumb-ph" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.5"></circle><path d="M4 17l5-5 4 4 3-3 4 4"></path></svg>
+              </span>
+            </div>
+            <span class="od-prod-name" [title]="productName(item)">{{ productName(item) }}</span>
+            <span class="od-prod-plan">{{ itemPlanLabel(item) }}</span>
+            <span class="od-prod-price">{{ itemPrice(item) }}</span>
+          </div>
+          <p *ngIf="!detailItems().length" class="od-empty">No products in this order.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

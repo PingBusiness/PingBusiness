@@ -1,0 +1,108 @@
+.hero {
+  display: flex;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  /* Pull up behind the sticky header (~96px: 48px controls + 12px×2 inner
+     + 12px×2 outer padding) + page-shell top padding (1.25rem) so the
+     transparent header floats over the hero with no white gap on top. */
+  margin-top: calc(-98px - 1.25rem);
+  margin-bottom: 2.75rem;
+  min-height: 720px;
+  overflow: hidden;
+  color: var(--color-surface);
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, .78) 100%),
+    radial-gradient(120% 100% at 68% 26%, rgba(var(--color-brand-rgb), .55), transparent 55%),
+    linear-gradient(160deg, var(--color-hero-base), var(--color-fg) 72%);
+}
+
+.hero-inner {
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 110px 20px 40px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 640px;
+}
+
+.hero-title {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  line-height: 1.05;
+  color: var(--color-brand);
+}
+
+.hero-tagline {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .75rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, .85);
+  max-width: 34rem;
+}
+
+.hero-cta {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-weight: 500;
+  padding: .8rem 1.5rem;
+}
+
+.hero-cta:hover {
+  background: var(--color-surface);
+  color: var(--color-fg);
+  opacity: .9;
+}
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.product-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+@media (max-width: 1040px) {
+  .product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .hero {
+    min-height: 440px;
+  }
+
+  .hero-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 90px 20px 28px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

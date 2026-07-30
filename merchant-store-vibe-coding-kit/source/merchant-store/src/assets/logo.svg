@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PingBiz Store">
+  <rect width="64" height="64" rx="14" fill="#111827"/>
+  <path d="M16 42V18h19c8 0 13 4 13 11s-5 11-13 11H25v2H16zm9-10h10c3 0 5-1 5-3s-2-3-5-3H25v6z" fill="#fbbf24"/>
+  <path d="M18 49h30" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+</svg>

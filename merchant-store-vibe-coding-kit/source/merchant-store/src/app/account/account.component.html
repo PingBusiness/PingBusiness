@@ -1,0 +1,152 @@
+<nav class="account-tabs">
+  <a routerLink="/account" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">General</a>
+  <a routerLink="/orders" routerLinkActive="active">Orders</a>
+  <a routerLink="/subscriptions" routerLinkActive="active">Subscriptions</a>
+</nav>
+
+<h1 class="account-title">My Profile</h1>
+
+<div *ngIf="loading" class="loading-card">Loading account…</div>
+
+<section *ngIf="!loading" class="profile-grid">
+  <!-- Profile Info -->
+  <div class="profile-card">
+    <div class="pi-head">
+      <div class="card-title"><span class="card-mark"></span> Profile Info</div>
+      <button type="button" class="pi-edit" (click)="toggleProfilePanel()" aria-label="Edit profile">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
+      </button>
+    </div>
+    <div class="card-divider"></div>
+
+    <div class="info-list">
+      <div class="info-line">
+        <span class="info-label">Name</span>
+        <span class="info-plain">{{ ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim() || '—' }}</span>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">Email</span>
+        <span class="info-plain">{{ profile.email || '—' }}</span>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">Reset Password</span>
+        <button type="button" class="reset-link" (click)="togglePasswordPanel()">Reset Password</button>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">Created Date</span>
+        <span class="info-plain">{{ profile.created_at ? (profile.created_at | date:'MMM d | HH:mm') : '—' }}</span>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">Last updated</span>
+        <span class="info-plain">{{ profile.updated_at ? (profile.updated_at | date:'MMM d | HH:mm') : '—' }}</span>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">Purchased products</span>
+        <span class="info-plain">{{ purchasedCount ?? '—' }}</span>
+      </div>
+
+      <div class="info-line">
+        <span class="info-label">On-going subscription</span>
+        <span class="info-plain">{{ subscriptionCount ?? '—' }}</span>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Edit profile modal -->
+<div class="modal-backdrop" *ngIf="showProfilePanel" (click)="toggleProfilePanel()">
+  <div class="acct-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <div class="card-title"><span class="card-mark"></span> Edit Profile</div>
+      <button type="button" class="modal-close" (click)="toggleProfilePanel()" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M18.4697 19.5303C18.7626 19.8232 19.2374 19.8232 19.5303 19.5303C19.8232 19.2374 19.8232 18.7626 19.5303 18.4697L13.0607 12L19.5303 5.53033C19.8232 5.23744 19.8232 4.76256 19.5303 4.46967C19.2374 4.17678 18.7626 4.17678 18.4697 4.46967L12 10.9393L5.53033 4.46967C5.23744 4.17678 4.76256 4.17678 4.46967 4.46967C4.17678 4.76256 4.17678 5.23744 4.46967 5.53033L10.9393 12L4.46967 18.4697C4.17678 18.7626 4.17678 19.2374 4.46967 19.5303C4.76256 19.8232 5.23744 19.8232 5.53033 19.5303L12 13.0607L18.4697 19.5303Z"/></svg>
+      </button>
+    </div>
+    <div class="card-divider"></div>
+    <form class="edit-form" (ngSubmit)="save()">
+      <div class="form-grid two">
+        <label class="edit-label">
+          <span>First name</span>
+          <app-input-field name="first_name" [(ngModel)]="profile.first_name" placeholder="First name"></app-input-field>
+        </label>
+        <label class="edit-label">
+          <span>Last name</span>
+          <app-input-field name="last_name" [(ngModel)]="profile.last_name" placeholder="Last name"></app-input-field>
+        </label>
+      </div>
+      <div class="form-grid two">
+        <label class="edit-label">
+          <span>Email</span>
+          <app-input-field name="email" [(ngModel)]="profile.email" type="email" autocomplete="email" placeholder="Email"></app-input-field>
+        </label>
+        <label class="edit-label">
+          <span>Phone</span>
+          <app-input-field name="phone" [(ngModel)]="profile.phone" autocomplete="tel" placeholder="Phone"></app-input-field>
+        </label>
+      </div>
+      <label class="edit-label">
+        <span>Billing address</span>
+        <app-input-field name="billing_address" [(ngModel)]="profile.billing_address" placeholder="Billing address"></app-input-field>
+      </label>
+      <div class="edit-actions">
+        <button type="button" class="outline pill" (click)="toggleProfilePanel()">Cancel</button>
+        <button type="submit" class="accent pill" [disabled]="saving || !profile.id">{{ saving ? 'Saving…' : 'Save changes' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Reset password modal -->
+<div class="modal-backdrop pw-backdrop" *ngIf="showPasswordPanel" (click)="togglePasswordPanel()">
+  <div class="pw-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="pw-close-row">
+      <button type="button" class="modal-close" (click)="togglePasswordPanel()" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M18.4697 19.5303C18.7626 19.8232 19.2374 19.8232 19.5303 19.5303C19.8232 19.2374 19.8232 18.7626 19.5303 18.4697L13.0607 12L19.5303 5.53033C19.8232 5.23744 19.8232 4.76256 19.5303 4.46967C19.2374 4.17678 18.7626 4.17678 18.4697 4.46967L12 10.9393L5.53033 4.46967C5.23744 4.17678 4.76256 4.17678 4.46967 4.46967C4.17678 4.76256 4.17678 5.23744 4.46967 5.53033L10.9393 12L4.46967 18.4697C4.17678 18.7626 4.17678 19.2374 4.46967 19.5303C4.76256 19.8232 5.23744 19.8232 5.53033 19.5303L12 13.0607L18.4697 19.5303Z"/></svg>
+      </button>
+    </div>
+
+    <div class="pw-main">
+      <div class="pw-title">
+        <h2>Reset Password</h2>
+        <p>Setup a new password for your account</p>
+      </div>
+
+      <form class="pw-form" (ngSubmit)="changePassword()">
+        <app-input-field name="current_password" [(ngModel)]="password.current_password" type="password"
+          autocomplete="current-password" placeholder="Enter current password" icon="lock"></app-input-field>
+
+        <div class="pw-field">
+          <app-input-field name="new_password" [(ngModel)]="password.new_password" type="password"
+            autocomplete="new-password" placeholder="Enter new password" icon="lock"></app-input-field>
+          <div class="pw-rules">
+            <span class="pw-rule" [class.ok]="pwHasMinLength">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 4.5-5"></path></svg>
+              10 characters
+            </span>
+            <span class="pw-rule" [class.ok]="pwHasNumber">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 4.5-5"></path></svg>
+              1 number
+            </span>
+            <span class="pw-rule" [class.ok]="pwHasUppercase">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 4.5-5"></path></svg>
+              1 uppercase letter
+            </span>
+          </div>
+        </div>
+
+        <app-input-field name="confirm_password" [(ngModel)]="password.confirm_password" type="password"
+          autocomplete="new-password" placeholder="Re-enter new password" icon="lock"></app-input-field>
+
+        <button type="submit" class="pw-submit" [disabled]="passwordSaving || !password.current_password || !pwValid">
+          {{ passwordSaving ? 'Updating…' : 'Confirm new Password' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

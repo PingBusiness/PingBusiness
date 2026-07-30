@@ -1,0 +1,99 @@
+version: 1
+merchant:
+  legal_name: ""
+  display_name: ""
+  store_name: ""
+  tagline: ""
+  locale: "en"
+  currency_display_preferences: ""
+
+brand:
+  personality: []
+  primary_color: ""
+  secondary_color: ""
+  accent_color: ""
+  background_color: ""
+  surface_color: ""
+  text_color: ""
+  muted_text_color: ""
+  success_color: ""
+  warning_color: ""
+  error_color: ""
+  typography:
+    heading_family: ""
+    body_family: ""
+    approved_web_font_sources: []
+    fallback_stack: "system-ui, sans-serif"
+  shape:
+    border_radius: ""
+    card_style: ""
+    shadow_style: ""
+  motion:
+    preference: "subtle"
+    respect_reduced_motion: true
+
+assets:
+  primary_logo: ""
+  alternate_logo: ""
+  favicon: ""
+  hero_images: []
+  product_placeholder: ""
+  icons: []
+  asset_manifest: "design/ASSET_MANIFEST.md"
+
+content:
+  home_headline: ""
+  home_subheadline: ""
+  primary_call_to_action: "Shop now"
+  about_copy: ""
+  support_email: ""
+  footer_links: []
+  legal_links: []
+  copy_editing_allowed: true
+
+experience:
+  navigation_style: ""
+  home_sections: []
+  catalog_density: "comfortable"
+  product_image_fit: "contain"
+  checkout_window_preference: "popup"
+  subscription_explanation: ""
+  empty_state_tone: "helpful"
+  error_tone: "clear and calm"
+  minimum_supported_width: 320
+  accessibility_target: "WCAG 2.2 AA"
+  supported_browsers:
+    - current Chrome
+    - current Edge
+    - current Firefox
+    - current Safari
+
+integrations:
+  analytics: "none"
+  consent_manager: "none"
+  customer_support: "none"
+  error_monitoring: "none"
+  explicitly_approved_public_configuration: {}
+
+constraints:
+  preserve_existing_routes: true
+  preserve_runtime_api_config: true
+  preserve_checkout_protocols: true
+  do_not_modify_estore_app: true
+  do_not_add_backend_contracts: true
+  prohibited_third_parties: []
+  additional_requirements: []
+  out_of_scope: []
+
+acceptance:
+  required_viewports: [320, 375, 768, 1024, 1440]
+  required_build_command: "npm run build:prod"
+  required_journeys:
+    - browse catalogue, product details, media, and downloads
+    - register, sign in, refresh, and sign out
+    - update account and password
+    - add, update, revalidate, and remove cart lines
+    - ordinary checkout launch and authoritative completion polling
+    - subscription enrollment and authoritative completion polling
+    - view orders, order items, subscriptions, and payments
+  additional_criteria: []

@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pingbusiness.org/schemas/merchant-store-deployment-input-v2.json",
+  "title": "Ping Business merchant-store deployment input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "deploymentName",
+    "platform",
+    "pingbusinessEnvironment",
+    "storeDomain",
+    "merchantIdentifier",
+    "storeIdentifier",
+    "merchantApiKey"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "deploymentName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,39}$",
+      "description": "Lowercase deployment slug."
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "compose",
+        "qovery",
+        "northflank",
+        "railway",
+        "coolify"
+      ]
+    },
+    "pingbusinessEnvironment": {
+      "type": "string",
+      "enum": [
+        "staging",
+        "production"
+      ],
+      "default": "staging",
+      "description": "Selects the Ping Business biz-app endpoint. Staging maps to https://biz-app.staging.pingbusiness.org; production maps to https://biz-app.pingbusiness.org."
+    },
+    "region": {
+      "type": "string",
+      "minLength": 1,
+      "default": "ca-central",
+      "description": "Human-readable region or provider-specific region selected by the deployment agent."
+    },
+    "storeDomain": {
+      "$ref": "#/$defs/hostname"
+    },
+    "acmeEmail": {
+      "type": "string",
+      "format": "email",
+      "description": "Optional ACME contact for Compose/Caddy deployments."
+    },
+    "storeDisplayName": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "storeSupportEmail": {
+      "type": "string",
+      "format": "email"
+    },
+    "merchantIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "writeOnly": true,
+      "x-sensitive": true
+    },
+    "storeIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "writeOnly": true,
+      "x-sensitive": true
+    },
+    "merchantApiKey": {
+      "type": "string",
+      "minLength": 16,
+      "writeOnly": true,
+      "x-secret": true
+    },
+    "kitRepository": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "default": "https://github.com/PingBusiness/PingBusiness"
+        },
+        "branch": {
+          "type": "string",
+          "default": "main"
+        },
+        "rootPath": {
+          "type": "string",
+          "default": "/merchant-store-vibe-coding-kit",
+          "pattern": "^/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$",
+          "description": "Absolute path from the Git repository root to the vibe-kit directory."
+        }
+      }
+    },
+    "uiSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "mode": "bundled"
+      },
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "bundled",
+            "git"
+          ]
+        },
+        "repositoryUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "branch": {
+          "type": "string",
+          "default": "main"
+        },
+        "rootPath": {
+          "type": "string",
+          "default": "/"
+        },
+        "dockerfilePath": {
+          "type": "string",
+          "default": "Dockerfile"
+        },
+        "qoveryGitTokenId": {
+          "type": "string",
+          "description": "Optional Qovery git-token resource ID for a private customized-UI repository."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "git"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "repositoryUrl"
+            ]
+          }
+        }
+      ]
+    },
+    "keycloak": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "realm": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$",
+          "default": "ESTORE"
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$",
+          "default": "estore-app"
+        },
+        "clientSecret": {
+          "type": "string",
+          "minLength": 32,
+          "writeOnly": true,
+          "x-secret": true,
+          "x-generated": true
+        },
+        "adminUsername": {
+          "type": "string",
+          "minLength": 3,
+          "default": "admin"
+        },
+        "adminPassword": {
+          "type": "string",
+          "minLength": 24,
+          "writeOnly": true,
+          "x-secret": true,
+          "x-generated": true
+        },
+        "bruteForceProtection": {
+          "const": false,
+          "default": false,
+          "description": "Intentionally disabled by current Ping Business product decision."
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "MANAGED",
+            "CONTAINER"
+          ],
+          "default": "MANAGED"
+        },
+        "version": {
+          "type": "string",
+          "default": "16"
+        },
+        "storageGb": {
+          "type": "integer",
+          "minimum": 10,
+          "default": 20
+        },
+        "instanceType": {
+          "type": "string",
+          "description": "Required by Qovery when mode is MANAGED; cloud-provider specific."
+        },
+        "containerCpuMillicores": {
+          "type": "integer",
+          "minimum": 250,
+          "default": 500
+        },
+        "containerMemoryMb": {
+          "type": "integer",
+          "minimum": 256,
+          "default": 1024
+        }
+      }
+    },
+    "dns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "provider-api"
+          ],
+          "default": "manual"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "cloudflare",
+            "route53",
+            "other"
+          ]
+        },
+        "zone": {
+          "type": "string"
+        },
+        "apiToken": {
+          "type": "string",
+          "writeOnly": true,
+          "x-secret": true
+        },
+        "useCdnProxy": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "platformParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "qovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "organizationId": {
+              "type": "string"
+            },
+            "clusterId": {
+              "type": "string"
+            },
+            "projectName": {
+              "type": "string"
+            },
+            "environmentName": {
+              "type": "string",
+              "default": "production"
+            }
+          }
+        },
+        "northflank": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "postgresVersion": {
+              "type": "string",
+              "default": "16-latest"
+            },
+            "postgresStorageMb": {
+              "type": "integer",
+              "minimum": 10240,
+              "default": 20480
+            },
+            "postgresPlan": {
+              "type": "string",
+              "default": "nf-compute-50"
+            },
+            "keycloakPlan": {
+              "type": "string",
+              "default": "nf-compute-100-2"
+            },
+            "bootstrapPlan": {
+              "type": "string",
+              "default": "nf-compute-50"
+            },
+            "backendPlan": {
+              "type": "string",
+              "default": "nf-compute-50"
+            },
+            "uiPlan": {
+              "type": "string",
+              "default": "nf-compute-20"
+            },
+            "edgePlan": {
+              "type": "string",
+              "default": "nf-compute-20"
+            },
+            "buildPlan": {
+              "type": "string",
+              "default": "nf-compute-400-16"
+            }
+          }
+        },
+        "railway": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectName": {
+              "type": "string"
+            },
+            "environmentName": {
+              "type": "string",
+              "default": "production"
+            },
+            "edgeServiceName": {
+              "type": "string",
+              "default": "edge"
+            },
+            "postgresServiceName": {
+              "type": "string",
+              "default": "postgres"
+            }
+          }
+        },
+        "coolify": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectUuid": {
+              "type": "string"
+            },
+            "serverUuid": {
+              "type": "string"
+            },
+            "environmentName": {
+              "type": "string",
+              "default": "production"
+            },
+            "destinationUuid": {
+              "type": "string"
+            },
+            "applicationName": {
+              "type": "string"
+            },
+            "instantDeploy": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "hostname": {
+      "type": "string",
+      "pattern": "^(?=.{1,253}$)(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$",
+      "description": "Public hostname only; no scheme or path."
+    }
+  }
+}

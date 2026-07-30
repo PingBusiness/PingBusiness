@@ -1,0 +1,29 @@
+<section class="auth-shell">
+  <div class="auth-tabs">
+    <a class="auth-tab" routerLink="/signup">Sign Up</a>
+    <span class="auth-tab active">Log In</span>
+  </div>
+
+  <div *ngIf="notice" class="auth-toast">
+    <strong>{{ noticeTitle || 'Notice' }}</strong>
+    <span>{{ notice }}</span>
+  </div>
+
+  <div class="auth-head">
+    <h1>Log in to your account</h1>
+    <p>Welcome back! Please log in to continue</p>
+  </div>
+
+  <form class="auth-form" (ngSubmit)="submit()">
+    <app-input-field name="username" [(ngModel)]="username" inputName="username"
+      autocomplete="username" placeholder="Email address" icon="envelope"></app-input-field>
+
+    <app-input-field name="password" [(ngModel)]="password" type="password" inputName="password"
+      autocomplete="current-password" placeholder="Password" icon="lock"
+      linkText="Forgot Password" (linkClick)="onForgotPassword()"></app-input-field>
+
+    <button type="submit" class="accent pill auth-submit" [disabled]="loading || !username || !password">
+      {{ loading ? 'Logging In…' : 'Log In' }}
+    </button>
+  </form>
+</section>

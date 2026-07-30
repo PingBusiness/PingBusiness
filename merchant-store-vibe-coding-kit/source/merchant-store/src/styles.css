@@ -1,0 +1,714 @@
+/*
+ * Brand tokens.
+ * Storefront colors, type, radii and shadow live here as CSS custom properties
+ * so a merchant (or an AI generation pass) can rebrand the whole store by
+ * swapping these values — components never hard-code a color. Values below are
+ * the reference template defaults (Geist + orange), only the tokens change.
+ */
+:root {
+  /* Type */
+  --font-sans: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Neutrals */
+  --color-surface: #ffffff;
+  --color-canvas: #ffffff;
+  --color-surface-muted: #f4f4f4;
+  --color-border: #e9e9e9;
+  --color-border-soft: #f4f4f4;
+  --color-border-strong: #d5d5d5;
+  --color-fg-faint: #b0b0b0;
+  --color-fg-muted: #909090;
+  --color-fg-subtle: #444444;
+  --color-fg-slate: #444444;
+  --color-fg-gray: #3b3a3a;
+  --color-fg-strong: #1d1d1d;
+  --color-fg: #0f0f0f;
+  --color-fg-deep: #0f0f0f;
+
+  /* Brand (primary / orange) */
+  --color-brand: #fd4912;
+  --color-brand-strong: #e23d0b;
+  --color-brand-deep: #c23409;
+  --color-brand-deepest: #9e2a07;
+  --color-brand-300: #ff6a3d;
+  --color-brand-200: #ffb59e;
+  --color-brand-100: #ffe6dd;
+  --color-brand-50: #fff4f0;
+  --color-brand-wash: #fff4f0;
+
+  /* Accent (kept neutral in this template) */
+  --color-accent: #0f0f0f;
+  --color-accent-strong: #0f0f0f;
+  --color-accent-deep: #1d1d1d;
+  --color-accent-200: #e9e9e9;
+  --color-accent-100: #f4f4f4;
+  --color-accent-50: #fafafa;
+
+  /* Success */
+  --color-success: #157a3c;
+  --color-success-200: #b6e6c4;
+  --color-success-100: #e7f6ec;
+  --color-success-50: #f3fbf6;
+
+  /* Danger */
+  --color-danger: #d92d20;
+  --color-danger-strong: #b42318;
+  --color-danger-200: #fecdca;
+  --color-danger-100: #feecea;
+  --color-danger-50: #fef4f3;
+
+  /* Info */
+  --color-info: #1849a9;
+  --color-info-strong: #175cd3;
+  --color-info-200: #b2ddff;
+  --color-info-sky: #d1e9ff;
+  --color-info-100: #eff8ff;
+  --color-info-50: #f5faff;
+
+  /* Status text (design) + extra neutrals */
+  --color-error: #fb1028;
+  --color-status-success: #14b957;
+  --color-status-waiting: #1079f1;
+  --color-warning: #ffd952;
+  --color-surface-subtle: #fafafa;
+  --color-brand-soft: #fd6d41;
+  --color-hero-base: #2b2723;
+
+  /* Modal overlay (design: Secondary/Overlay #231F20 @ 80%) */
+  --color-overlay: rgba(35, 31, 32, .8);
+
+  /* Brand base (r,g,b) for use inside rgba() gradients/glows */
+  --color-brand-rgb: 253, 73, 18;
+
+  /* Shadow base (r,g,b for rgba()) */
+  --color-shadow-rgb: 15, 15, 15;
+
+  /* Radius scale */
+  --radius-0: .4rem;
+  --radius-1: .45rem;
+  --radius-2: .5rem;
+  --radius-3: .55rem;
+  --radius-4: .6rem;
+  --radius-5: .65rem;
+  --radius-6: .75rem;
+  --radius-7: .8rem;
+  --radius-8: .9rem;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-fg);
+  background: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-brand);
+}
+
+h1, h2, h3, h4 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h1, h2, h3, p {
+  overflow-wrap: anywhere;
+}
+
+/* Buttons ------------------------------------------------------------------ */
+button,
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  background: var(--color-fg);
+  color: var(--color-surface);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: .95rem;
+  padding: .7rem 1.1rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+button:hover,
+.button-link:hover {
+  background: var(--color-fg-strong);
+  color: var(--color-surface);
+}
+
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Accent (orange) — auth CTAs, primary highlights */
+button.accent,
+.button-link.accent {
+  background: var(--color-brand);
+  color: var(--color-surface);
+}
+
+button.accent:hover,
+.button-link.accent:hover {
+  background: var(--color-brand-strong);
+  color: var(--color-surface);
+}
+
+/* Outline — Buy Now / Subscribe Now */
+button.outline,
+.button-link.outline {
+  background: transparent;
+  color: var(--color-fg);
+  border-color: var(--color-border-strong);
+}
+
+button.outline:hover,
+.button-link.outline:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-fg);
+  border-color: var(--color-fg);
+}
+
+button.secondary,
+.button-link.secondary {
+  background: var(--color-surface-muted);
+  color: var(--color-fg);
+}
+
+button.secondary:hover,
+.button-link.secondary:hover {
+  background: var(--color-border);
+  color: var(--color-fg);
+}
+
+button.danger,
+.button-link.danger {
+  background: var(--color-danger-100);
+  color: var(--color-danger);
+}
+
+button.pill,
+.button-link.pill {
+  border-radius: var(--radius-pill);
+}
+
+button.small {
+  padding: .4rem .7rem;
+  font-size: .85rem;
+}
+
+.plain-link {
+  display: inline;
+  background: transparent;
+  color: var(--color-brand);
+  padding: 0;
+  border: 0;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.plain-link:hover {
+  background: transparent;
+  color: var(--color-brand-strong);
+  text-decoration: underline;
+}
+
+/* Forms -------------------------------------------------------------------- */
+label {
+  display: grid;
+  gap: .35rem;
+  font-size: .92rem;
+  font-weight: 500;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  padding: .7rem .8rem;
+  font: inherit;
+  color: var(--color-fg);
+  background: var(--color-surface);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-brand);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-fg-faint);
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Surfaces ----------------------------------------------------------------- */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  padding: 1rem;
+}
+
+.soft-card {
+  background: var(--color-surface-muted);
+}
+
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.page-heading h1 {
+  margin: .1rem 0 .35rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: var(--color-fg-muted);
+  font-size: .68rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.muted {
+  color: var(--color-fg-muted);
+}
+
+.small-text {
+  font-size: .9rem;
+}
+
+.simple-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: .85rem;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.loading-card,
+.empty-state {
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface);
+  border-radius: var(--radius-8);
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--color-fg-subtle);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: .65rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+th {
+  color: var(--color-fg-subtle);
+  font-size: .85rem;
+}
+
+@media (max-width: 720px) {
+  .page-heading {
+    display: grid;
+    align-items: start;
+  }
+
+  .form-grid.two,
+  .form-grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: .85rem;
+  }
+}
+
+/* Auth (sign in / sign up / reset) ---------------------------------------- */
+.auth-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .25rem;
+  padding: .25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  margin-bottom: 2.5rem;
+}
+
+.auth-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: .6rem 1rem;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  font-size: .95rem;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+.auth-tab.active {
+  background: var(--color-fg);
+  color: var(--color-surface);
+}
+
+.auth-head {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-head h1 {
+  margin: 0 0 .5rem;
+  font-size: 2rem;
+}
+
+.auth-head p {
+  margin: 0;
+  color: var(--color-fg-subtle);
+}
+
+.auth-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.auth-field {
+  border-bottom: 1px solid var(--color-fg);
+  padding: .1rem 0 .5rem;
+}
+
+.auth-field-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-fg);
+  margin-bottom: .35rem;
+}
+
+.auth-field-top .auth-link {
+  color: var(--color-brand);
+  font-size: .82rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-input {
+  width: 100%;
+  border: 0;
+  padding: .15rem 0;
+  background: transparent;
+  font-size: .95rem;
+}
+
+.auth-input:focus {
+  outline: none;
+}
+
+.pw-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.25rem;
+  margin-top: .55rem;
+}
+
+.pw-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .72rem;
+  color: var(--color-fg-faint);
+}
+
+.pw-rule.met {
+  color: var(--color-success);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: .5rem;
+  padding: .85rem;
+}
+
+.auth-toast {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  background: var(--color-success);
+  color: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: .7rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-toast strong {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .72rem;
+}
+
+.auth-toast span {
+  font-size: .82rem;
+  opacity: .9;
+}
+
+/* Account (tabbed pages) --------------------------------------------------- */
+.account-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 40px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 16px;
+  margin-bottom: 40px;
+}
+
+.account-tabs a {
+  padding: 0 8px;
+  color: var(--color-fg);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 28px;
+}
+
+.account-tabs a:focus,
+.account-tabs a:focus-visible {
+  outline: none;
+}
+
+.account-tabs a:hover {
+  color: var(--color-brand);
+}
+
+.account-tabs a.active {
+  color: var(--color-brand);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 32px;
+}
+
+.account-title {
+  margin: 0 0 40px;
+  font-size: 40px;
+  line-height: 52px;
+  font-weight: 400;
+}
+
+/* Module card (Profile / Order History / Payment …) */
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+  color: var(--color-fg-subtle);
+}
+
+.card-mark {
+  flex-shrink: 0;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-brand-soft);
+}
+
+.card-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: 1.25rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.panel-mark {
+  width: 18px;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+}
+
+/* Data table (order / subscription history) */
+.data-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.data-table thead th {
+  text-align: left;
+  padding: .75rem 1rem;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--color-fg-subtle);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table tbody td {
+  padding: .9rem 1rem;
+  font-size: .88rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table .cell-product a {
+  color: var(--color-brand);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.data-table .cell-product a:hover {
+  text-decoration: underline;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-fg-muted);
+}
+
+.status-pill.active,
+.status-pill.completed,
+.status-pill.s {
+  color: var(--color-success);
+}
+
+.status-pill.pending,
+.status-pill.processing,
+.status-pill.waiting,
+.status-pill.r,
+.status-pill.p,
+.status-pill.n {
+  color: var(--color-info-strong);
+}
+
+.status-pill.cancelled,
+.status-pill.error,
+.status-pill.f {
+  color: var(--color-danger);
+}
+
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+
+.history-toolbar select {
+  width: auto;
+  min-width: 180px;
+}
+
+/* Breadcrumb (shared) ------------------------------------------------------ */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 0;
+  margin-bottom: 1rem;
+}
+
+.breadcrumb a,
+.breadcrumb .sep {
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-brand);
+}
+
+.breadcrumb .current {
+  color: var(--color-fg);
+  font-size: 14px;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

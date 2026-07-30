@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ping Business Merchant Store Launcher</title>
+  <meta name="description" content="Generate safe AI prompts to customize or deploy a Ping Business merchant store.">
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#63708a; --line:#d8deea; --surface:#fff; --wash:#f4f7fb; --accent:#315efb; --accent-ink:#fff; --danger:#a32929; --success:#166534; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:var(--wash); }
+    main { width:min(980px,calc(100% - 32px)); margin:40px auto; }
+    h1 { margin:0 0 8px; font-size:clamp(1.8rem,4vw,2.7rem); line-height:1.12; }
+    h2 { margin-top:0; }
+    p { max-width:75ch; }
+    a { color:var(--accent); }
+    .lede { color:var(--muted); font-size:1.08rem; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:0 12px 34px rgba(26,39,70,.08); overflow:hidden; }
+    .kitbar { padding:16px 20px; background:#eef3ff; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .kitbar code { overflow-wrap:anywhere; }
+    .tabs { display:flex; border-bottom:1px solid var(--line); }
+    .tab { flex:1; border:0; background:#fff; padding:17px; font:inherit; font-weight:700; cursor:pointer; }
+    .tab[aria-selected="true"] { color:var(--accent); box-shadow:inset 0 -3px var(--accent); }
+    .panel { padding:24px; }
+    .panel[hidden] { display:none; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .wide { grid-column:1/-1; }
+    label { display:block; font-weight:700; margin-bottom:6px; }
+    input, select, textarea { width:100%; font:inherit; color:inherit; background:#fff; border:1px solid #b9c3d6; border-radius:10px; padding:11px 12px; }
+    textarea { min-height:100px; resize:vertical; }
+    input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline:3px solid rgba(49,94,251,.28); outline-offset:2px; }
+    .hint { color:var(--muted); font-size:.92rem; margin:5px 0 0; }
+    .notice { margin:18px 0; padding:13px 15px; border-left:4px solid var(--accent); background:#f4f7ff; }
+    .warning { border-left-color:var(--danger); background:#fff4f4; color:#6e2020; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    button, .button { display:inline-flex; align-items:center; justify-content:center; border:1px solid transparent; border-radius:10px; padding:11px 15px; font:inherit; font-weight:700; text-decoration:none; cursor:pointer; }
+    .primary { background:var(--accent); color:var(--accent-ink); }
+    .secondary { background:#fff; border-color:#aeb9ce; color:var(--ink); }
+    .output { margin-top:20px; }
+    .output textarea { min-height:330px; font:14px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; background:#111827; color:#f8fafc; border-color:#111827; }
+    .status { min-height:24px; color:var(--success); font-weight:700; }
+    footer { color:var(--muted); font-size:.9rem; margin-top:18px; }
+    @media (max-width:700px) { main { margin:20px auto; width:min(100% - 20px,980px); } .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } .panel { padding:18px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Launch a Ping Business merchant store</h1>
+  <p class="lede">Generate a complete prompt for your preferred AI coding agent. Customize the store first, then attach the resulting UI package when you generate the deployment prompt.</p>
+
+  <section class="card" aria-label="Merchant store prompt generator">
+    <div class="kitbar">
+      <div><strong>Authoritative kit</strong><br><code>https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit</code></div>
+      <div class="actions" style="margin:0">
+        <a class="button secondary" href="https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit" target="_blank" rel="noopener">Open kit</a>
+        <a class="button secondary" href="https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md" target="_blank" rel="noopener">Open agent instructions</a>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Workflow">
+      <button class="tab" id="tab-design" role="tab" aria-selected="true" aria-controls="design">1. Customize UI</button>
+      <button class="tab" id="tab-deploy" role="tab" aria-selected="false" aria-controls="deploy">2. Deploy store</button>
+    </div>
+
+    <section class="panel" id="design" role="tabpanel" aria-labelledby="tab-design">
+      <h2>Customize the merchant store</h2>
+      <p>The generated prompt tells an AI agent to retrieve the public kit, apply your brand, preserve the security and checkout contracts, build the Angular app, and return a complete downloadable source package.</p>
+      <div class="grid">
+        <div><label for="brand">Merchant or store name</label><input id="brand" placeholder="Example Store"></div>
+        <div><label for="fonts">Typography</label><input id="fonts" placeholder="Inter for body; Playfair Display for headings"></div>
+        <div><label for="primary">Primary colour</label><input id="primary" placeholder="#315EFB"></div>
+        <div><label for="secondary">Secondary/accent colours</label><input id="secondary" placeholder="#172033, #F4F7FB"></div>
+        <div class="wide"><label for="assets">Logo and asset instructions</label><textarea id="assets" placeholder="I will attach logo.svg, favicon.png, product photography, and the rights-approved font files to the AI conversation."></textarea><p class="hint">Attach the actual assets directly to your chosen AI tool; this page does not upload them.</p></div>
+        <div class="wide"><label for="requirements">Look, feel, content, and UI requirements</label><textarea id="requirements" placeholder="Clean premium design, large product imagery, mobile-first navigation, accessible contrast, footer links..."></textarea></div>
+      </div>
+      <div class="actions">
+        <button class="primary" type="button" id="generate-design">Generate design prompt</button>
+        <button class="secondary" type="button" data-copy="design-output">Copy prompt</button>
+        <a class="button secondary" href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a>
+        <a class="button secondary" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+      </div>
+      <div class="output"><label for="design-output">Design prompt</label><textarea id="design-output" readonly></textarea></div>
+      <p class="status" id="design-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="deploy" role="tabpanel" aria-labelledby="tab-deploy" hidden>
+      <h2>Deploy the complete store stack</h2>
+      <p>Use the default UI or attach the customized UI ZIP/repository from step 1 to the deployment-agent conversation.</p>
+      <div class="grid">
+        <div><label for="environment">Ping Business environment</label><select id="environment"><option value="staging">Staging / test</option><option value="production">Production</option></select></div>
+        <div><label for="platform">Hosting platform</label><select id="platform"><option value="railway">Railway</option><option value="coolify">Coolify</option><option value="qovery">Qovery</option><option value="northflank">Northflank</option></select></div>
+        <div><label for="domain">Store DNS hostname</label><input id="domain" placeholder="shop.example.com" inputmode="url"></div>
+        <div><label for="region">Preferred region</label><input id="region" placeholder="Canada Central or nearest available region"></div>
+        <div><label for="merchant-id">Merchant identifier</label><input id="merchant-id" autocomplete="off"></div>
+        <div><label for="store-id">Store identifier</label><input id="store-id" autocomplete="off"></div>
+        <div><label for="dns-mode">DNS handling</label><select id="dns-mode"><option value="manual">Show me the DNS record to create</option><option value="provider-api">Configure DNS using a narrowly scoped token requested later</option></select></div>
+        <div><label for="ui-mode">UI source</label><select id="ui-mode"><option value="bundled">Use the default UI from the kit</option><option value="attached">I will attach the customized UI ZIP to the AI conversation</option><option value="git">Use my customized UI Git repository</option></select></div>
+        <div class="wide"><label for="ui-source">Customized UI details (optional)</label><textarea id="ui-source" placeholder="For Git: repository URL, branch, source root, and Dockerfile path. For attached ZIP: describe the filename you will attach."></textarea></div>
+      </div>
+      <div class="notice warning"><strong>Do not paste the merchant API key into this page.</strong> It is intentionally excluded from the generated prompt. The deployment agent must request it only when it can place the value directly into the selected platform's protected secret store as <code>PINGBIZ_MERCHANT_API_KEY</code>.</div>
+      <div class="actions">
+        <button class="primary" type="button" id="generate-deploy">Generate deployment prompt</button>
+        <button class="secondary" type="button" data-copy="deploy-output">Copy prompt</button>
+        <a class="button secondary" id="open-platform" href="https://railway.com/" target="_blank" rel="noopener">Open Railway</a>
+        <a class="button secondary" href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a>
+        <a class="button secondary" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+      </div>
+      <div class="output"><label for="deploy-output">Deployment prompt</label><textarea id="deploy-output" readonly></textarea></div>
+      <p class="status" id="deploy-status" role="status" aria-live="polite"></p>
+    </section>
+  </section>
+  <footer>This page runs entirely in your browser. It sends no form values anywhere. Apache-2.0 applies to the Ping Business-originated kit code; merchant assets retain their own ownership and license terms.</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const REPOSITORY_URL = "https://github.com/PingBusiness/PingBusiness";
+  const REPOSITORY_BRANCH = "main";
+  const KIT_ROOT_PATH = "/merchant-store-vibe-coding-kit";
+  const KIT_TREE_URL = "https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit";
+  const AGENT_ENTRYPOINT_URL = "https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md";
+  const BIZ_APP_URLS = Object.freeze({ staging: 'https://biz-app.staging.pingbusiness.org', production: 'https://biz-app.pingbusiness.org' });
+  const PLATFORM_NAMES = Object.freeze({ railway:'Railway', coolify:'Coolify', qovery:'Qovery', northflank:'Northflank' });
+  const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', coolify:'https://coolify.io/', qovery:'https://www.qovery.com/', northflank:'https://northflank.com/' });
+  const $ = id => document.getElementById(id);
+  const value = id => $(id).value.trim();
+
+  function showTab(which) {
+    const design = which === 'design';
+    $('design').hidden = !design; $('deploy').hidden = design;
+    $('tab-design').setAttribute('aria-selected', String(design));
+    $('tab-deploy').setAttribute('aria-selected', String(!design));
+  }
+  $('tab-design').addEventListener('click', () => showTab('design'));
+  $('tab-deploy').addEventListener('click', () => showTab('deploy'));
+
+  function designPrompt() {
+    const brand = value('brand') || '[merchant/store name]';
+    const fonts = value('fonts') || '[choose accessible brand-appropriate typography]';
+    const primary = value('primary') || '[primary colour]';
+    const secondary = value('secondary') || '[secondary/accent colours]';
+    const assets = value('assets') || '[assets will be attached separately]';
+    const requirements = value('requirements') || '[apply a polished, responsive, accessible merchant design]';
+    return `Customize the Ping Business merchant-store UI for ${brand}.
+
+Authoritative public source:
+- Repository: ${REPOSITORY_URL}
+- Branch: ${REPOSITORY_BRANCH}
+- Kit root: ${KIT_ROOT_PATH}
+- Kit page: ${KIT_TREE_URL}
+- Agent instructions: ${AGENT_ENTRYPOINT_URL}
+
+Retrieve the public repository yourself and read AGENTS.md, design/DESIGN_AGENT.md, prompts/DESIGN_PROMPT.md, docs/ESTORE_APP_API_SPEC.md, docs/SECURITY.md, and the complete source/merchant-store tree under the kit root before editing. Never use the obsolete /estore-ui tree elsewhere in the monorepo.
+
+Brand inputs:
+- Store name: ${brand}
+- Primary colour: ${primary}
+- Secondary/accent colours: ${secondary}
+- Typography: ${fonts}
+- Logo/assets: ${assets}
+- Requirements: ${requirements}
+
+I will attach the actual brand assets separately. Use only assets I supply or assets with verified redistribution rights.
+
+Return a complete downloadable customized merchant-store source package, not a mockup or patch fragment. Preserve same-origin /api runtime configuration, authentication and refresh, inventory-aware cart validation, ordinary and recurring checkout behavior, authoritative checkout-status verification, read-only orders/payments, SPA routing, /healthz, and the rule that no merchant API key, Keycloak client secret, server credential, or central biz-app call may appear in browser code.
+
+Run npm ci, the production build, the frontend secret scan, and relevant tests. Include DESIGN_REPORT.md with changed files and actual results. Preserve LICENSE, NOTICE, TRADEMARKS.md, and THIRD_PARTY_NOTICES.md; identify modified Ping Business-originated files as required by Apache-2.0.`;
+  }
+
+  function deployPrompt() {
+    const environment = $('environment').value;
+    const platform = $('platform').value;
+    const domain = value('domain') || '[store hostname required]';
+    const region = value('region') || '[nearest supported region]';
+    const merchantId = value('merchant-id') || '[merchant identifier required]';
+    const storeId = value('store-id') || '[store identifier required]';
+    const dnsMode = $('dns-mode').value;
+    const uiMode = $('ui-mode').value;
+    const uiDetails = value('ui-source') || (uiMode === 'bundled' ? 'Use source/merchant-store from the kit.' : '[I will provide the customized UI source separately.]');
+    const bizUrl = BIZ_APP_URLS[environment];
+    return `Deploy a complete Ping Business merchant store on ${PLATFORM_NAMES[platform]}.
+
+Authoritative public source:
+- Git clone URL: ${REPOSITORY_URL}
+- Branch: ${REPOSITORY_BRANCH}
+- Kit root inside the monorepo: ${KIT_ROOT_PATH}
+- Kit page: ${KIT_TREE_URL}
+- Agent instructions: ${AGENT_ENTRYPOINT_URL}
+
+Clone the repository root; do not attempt to clone the GitHub tree URL. Pin the exact commit deployed. Read AGENTS.md, deployment/DEPLOY_AGENT.md, prompts/DEPLOY_PROMPT.md, deployment/deployment-input.schema.json, and deployment/${platform} under the kit root.
+
+Deployment inputs:
+- Platform: ${PLATFORM_NAMES[platform]}
+- Ping Business environment: ${environment}
+- Derived BIZ_APP_BASE_URL: ${bizUrl}
+- Store hostname: ${domain}
+- Preferred region: ${region}
+- Merchant identifier: ${merchantId}
+- Store identifier: ${storeId}
+- DNS mode: ${dnsMode}
+- UI mode: ${uiMode}
+- UI details: ${uiDetails}
+
+The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. Request PINGBIZ_MERCHANT_API_KEY only when you are ready to place it directly into ${PLATFORM_NAMES[platform]}'s protected secret mechanism through an authorized masked input or credential workflow. Treat the merchant/store identifiers as sensitive deployment inputs as well.
+
+Use the selected environment exactly; do not accept a free-form replacement for BIZ_APP_BASE_URL. Generate database credentials, the Keycloak bootstrap administrator password, and ESTORE_CLIENT_SECRET securely. Keep Keycloak brute-force protection disabled for this kit version.
+
+Deploy in this order: configuration and secrets; PostgreSQL; Keycloak; ESTORE realm/client reconcile and verification; estore-app; default or supplied customized UI; one public edge; DNS; TLS; then end-to-end checks. Only the edge may be public. Route https://${domain}/ to the UI, /api/* to estore-app, and /auth/* to Keycloak.
+
+Before reporting success, run the kit validator, platform checks, public smoke tests, login/refresh checks, catalogue checks, checkout initiation/status checks, public-exposure checks, and backup verification that are possible in the authorized environment. Return URLs, platform resource IDs, DNS/TLS state, test evidence, protected secret locations and rotation instructions, and unresolved blockers. Never print raw secret values.`;
+  }
+
+  $('generate-design').addEventListener('click', () => { $('design-output').value = designPrompt(); $('design-status').textContent = 'Design prompt generated. Attach your assets when you open the AI conversation.'; });
+  $('generate-deploy').addEventListener('click', () => { $('deploy-output').value = deployPrompt(); $('deploy-status').textContent = 'Deployment prompt generated without the merchant API key.'; });
+  document.querySelectorAll('[data-copy]').forEach(button => button.addEventListener('click', async () => {
+    const output = $(button.dataset.copy); const status = button.closest('.panel').querySelector('.status');
+    if (!output.value) { status.textContent = 'Generate the prompt first.'; return; }
+    try { await navigator.clipboard.writeText(output.value); status.textContent = 'Prompt copied.'; }
+    catch { output.focus(); output.select(); status.textContent = 'Select and copy the highlighted prompt.'; }
+  }));
+  $('platform').addEventListener('change', event => { const key = event.target.value; const link = $('open-platform'); link.href = PLATFORM_URLS[key]; link.textContent = `Open ${PLATFORM_NAMES[key]}`; });
+  $('generate-design').click();
+  $('generate-deploy').click();
+})();
+</script>
+</body>
+</html>

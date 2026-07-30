@@ -1,0 +1,55 @@
+<section class="auth-shell signup-shell">
+  <div class="auth-tabs">
+    <span class="auth-tab active">Sign Up</span>
+    <a class="auth-tab" routerLink="/signin">Log In</a>
+  </div>
+
+  <div class="auth-head">
+    <h1>Create your account</h1>
+    <p>Just a few fields. We'll get your account ready in seconds.</p>
+  </div>
+
+  <form class="auth-form" (ngSubmit)="submit()">
+    <app-input-field name="email" [(ngModel)]="form.email" type="email" inputName="email"
+      autocomplete="email" placeholder="Email address" icon="envelope"></app-input-field>
+
+    <div>
+      <app-input-field name="password" [(ngModel)]="form.password" type="password" inputName="password"
+        autocomplete="new-password" placeholder="Password" icon="lock"></app-input-field>
+      <div class="pw-rules">
+        <span class="pw-rule" [class.met]="hasMinLength">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>
+          10 characters
+        </span>
+        <span class="pw-rule" [class.met]="hasNumber">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>
+          1 number
+        </span>
+        <span class="pw-rule" [class.met]="hasUppercase">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>
+          1 uppercase letter
+        </span>
+      </div>
+    </div>
+
+    <app-input-field name="confirmPassword" [(ngModel)]="form.confirmPassword" type="password" inputName="confirmPassword"
+      autocomplete="new-password" placeholder="Re-enter password" icon="lock"></app-input-field>
+
+    <app-input-field name="username" [(ngModel)]="form.username" inputName="username"
+      autocomplete="username" placeholder="Username (optional, defaults to email)" icon="user"></app-input-field>
+
+    <div class="signup-grid">
+      <app-input-field name="first_name" [(ngModel)]="form.first_name" placeholder="First name" icon="user"></app-input-field>
+      <app-input-field name="last_name" [(ngModel)]="form.last_name" placeholder="Last name" icon="user"></app-input-field>
+    </div>
+
+    <app-input-field name="phone" [(ngModel)]="form.phone" inputName="phone" autocomplete="tel" placeholder="Phone" icon="contact"></app-input-field>
+
+    <app-input-field name="billing_address" [(ngModel)]="form.billing_address" placeholder="Billing address" icon="home"></app-input-field>
+
+    <button type="submit" class="accent pill auth-submit"
+      [disabled]="loading || !form.first_name || !form.last_name || !form.phone.trim() || !form.billing_address.trim() || !form.password || form.password.length < 10">
+      {{ loading ? 'Creating account…' : 'Create Account' }}
+    </button>
+  </form>
+</section>

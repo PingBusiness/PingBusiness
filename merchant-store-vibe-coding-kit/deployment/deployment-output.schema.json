@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pingbusiness.org/schemas/merchant-store-deployment-output-v1.json",
+  "title": "Ping Business merchant-store deployment handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "platform",
+    "pingbusinessEnvironment",
+    "bizAppBaseUrl",
+    "storeUrl",
+    "keycloakAdminUrl",
+    "tests",
+    "credentials",
+    "backup"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "ready-with-warnings",
+        "failed"
+      ]
+    },
+    "platform": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "storeUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "apiBaseUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.*/api$"
+    },
+    "keycloakBaseUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.*/auth$"
+    },
+    "keycloakAdminUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://.*/auth/admin/"
+    },
+    "platformDashboardUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "sourceCommits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "dns": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "passed",
+          "failed",
+          "not-run"
+        ]
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "secretStore",
+        "keycloakAdminUsername",
+        "retrievalInstructions",
+        "secretsPrintedInReport"
+      ],
+      "properties": {
+        "secretStore": {
+          "type": "string"
+        },
+        "keycloakAdminUsername": {
+          "type": "string"
+        },
+        "retrievalInstructions": {
+          "type": "string"
+        },
+        "secretsPrintedInReport": {
+          "const": false
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "configured",
+        "restoreTested"
+      ],
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "restoreTested": {
+          "type": "boolean"
+        },
+        "retention": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "string"
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pingbusinessEnvironment": {
+      "type": "string",
+      "enum": [
+        "staging",
+        "production"
+      ]
+    },
+    "bizAppBaseUrl": {
+      "type": "string",
+      "format": "uri",
+      "enum": [
+        "https://biz-app.staging.pingbusiness.org",
+        "https://biz-app.pingbusiness.org"
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<nav class="breadcrumb">
+  <a routerLink="/">Home</a>
+  <span class="sep">/</span>
+  <span class="current">Products</span>
+</nav>
+
+<h1 class="catalog-title">All Products</h1>
+
+<div *ngIf="loading" class="loading-card">Loading products…</div>
+
+<div *ngIf="!loading && totalProducts() > 0" class="simple-grid catalog-grid">
+  <app-product-card
+    *ngFor="let product of pagedProducts()"
+    [product]="product"
+    (addToCart)="add($event)"
+    (subscribeNow)="subscribe($event)">
+  </app-product-card>
+</div>
+
+<div *ngIf="!loading && totalProducts() > pageSize" class="pagination-bar">
+  <span class="pagination-summary">Showing {{ pageStart() }}–{{ pageEnd() }} of {{ totalProducts() }}</span>
+  <div class="pagination-actions">
+    <button type="button" class="outline small" (click)="goToPage(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
+    <span>Page {{ currentPage }} of {{ totalPages() }}</span>
+    <button type="button" class="outline small" (click)="goToPage(currentPage + 1)" [disabled]="currentPage >= totalPages()">Next</button>
+  </div>
+</div>
+
+<div *ngIf="!loading && totalProducts() === 0" class="empty-state">
+  No products are available yet.
+</div>

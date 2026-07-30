@@ -1,0 +1,62 @@
+<h1 class="cart-title">Your shopping cart</h1>
+
+<div *ngIf="items.length === 0" class="empty-state">
+  Your cart is empty. <a routerLink="/catalog">Browse products</a>.
+</div>
+
+<section *ngIf="items.length > 0" class="cart-layout">
+  <div class="cart-lines">
+    <article class="cart-line" *ngFor="let item of items; trackBy: trackByProductId" [class.has-error]="lineError(item)">
+      <a class="line-art" [routerLink]="['/product', item.product_id]" [attr.aria-label]="item.product.name || 'Product image'">
+        <img *ngIf="imageUrl(item); else cartItemInitial" [src]="imageUrl(item)" [alt]="item.product.name || 'Product image'">
+        <ng-template #cartItemInitial>
+          <span>{{ (item.product.name || '?').slice(0, 1) }}</span>
+        </ng-template>
+      </a>
+
+      <a class="line-name" [routerLink]="['/product', item.product_id]">{{ item.product.name }}</a>
+
+      <div class="line-qty" role="group" aria-label="Quantity">
+        <button type="button" class="qty-btn" (click)="update(item, item.quantity - 1)" [disabled]="item.quantity <= 1" aria-label="Decrease quantity">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+        </button>
+        <input type="number" class="qty-value" min="1" step="1" [value]="item.quantity"
+          (change)="update(item, $any($event.target).value)" aria-label="Quantity">
+        <button type="button" class="qty-btn" (click)="update(item, item.quantity + 1)" aria-label="Increase quantity">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        </button>
+      </div>
+
+      <div class="line-price">{{ lineTotal(item) }}</div>
+
+      <button type="button" class="line-remove" (click)="remove(item)">Remove</button>
+
+      <span *ngIf="lineStockLabel(item)" class="line-stock" [class.out]="lineStock(item) === 0">{{ lineStockLabel(item) }}</span>
+
+      <span *ngIf="lineError(item)" class="line-error" role="alert">{{ lineError(item) }}</span>
+    </article>
+  </div>
+
+  <aside class="summary-card">
+    <h2>Order summary</h2>
+    <div class="summary-content">
+      <div class="summary-rows">
+        <div class="summary-row">
+          <span class="sum-label">Products</span>
+          <strong>{{ items.length }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Subtotal</span>
+          <strong>{{ subtotal() }}</strong>
+        </div>
+      </div>
+      <div class="summary-cta">
+        <button type="button" class="checkout-btn" (click)="checkout()" [disabled]="checkoutLoading || hasStockError()">
+          {{ checkoutLoading ? 'Checking inventory…' : 'Proceed to Checkout' }}
+        </button>
+        <p *ngIf="hasStockError()" class="summary-note" role="alert">Some items exceed available stock — update the quantities to continue.</p>
+        <p *ngIf="!hasStockError()" class="summary-note">You will be asked to sign in before checkout.</p>
+      </div>
+    </div>
+  </aside>
+</section>

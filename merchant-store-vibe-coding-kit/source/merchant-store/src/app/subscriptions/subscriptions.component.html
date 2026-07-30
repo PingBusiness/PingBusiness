@@ -1,0 +1,51 @@
+<nav class="account-tabs">
+  <a routerLink="/account" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">General</a>
+  <a routerLink="/orders" routerLinkActive="active">Orders</a>
+  <a routerLink="/subscriptions" routerLinkActive="active">Subscriptions</a>
+</nav>
+
+<h1 class="account-title">On-going Subscriptions</h1>
+
+<div *ngIf="loading" class="loading-card">Loading subscriptions…</div>
+
+<div *ngIf="!loading" class="history-card">
+  <div class="card-title"><span class="card-mark"></span> Order History</div>
+  <div class="card-divider"></div>
+
+  <p *ngIf="filteredSubscriptions().length === 0" class="no-data">No Data</p>
+
+  <div *ngIf="filteredSubscriptions().length > 0" class="table-wrap">
+    <div class="st-table">
+      <div class="st-row st-head">
+        <div class="st-cell">Product</div>
+        <div class="st-cell">Billing Period</div>
+        <div class="st-cell">Price</div>
+        <div class="st-cell">Payment Date</div>
+        <div class="st-cell">Next Payment</div>
+        <div class="st-cell">Payment Method</div>
+        <div class="st-cell">Payment Status</div>
+        <div class="st-cell st-cta"></div>
+      </div>
+
+      <div class="st-row" *ngFor="let item of filteredSubscriptions(); let i = index" [class.alt]="i % 2 === 1">
+        <div class="st-cell st-product" [title]="productName(item)">{{ productName(item) }}</div>
+        <div class="st-cell">{{ billingPeriod(item) }}</div>
+        <div class="st-cell">{{ currentAmount(item) }}</div>
+        <div class="st-cell">{{ item.created_at ? (item.created_at | date:'MMM d | HH:mm') : '—' }}</div>
+        <div class="st-cell">{{ item.recurring_start_date ? (item.recurring_start_date | date:'MMM d, y') : '—' }}</div>
+        <div class="st-cell">Credit Card</div>
+        <div class="st-cell">
+          <span class="st-status-text" [ngClass]="statusClass(item)">{{ statusLabel(item) }}</span>
+        </div>
+        <div class="st-cell st-cta">
+          <button type="button" class="st-kebab" (click)="toggleMenu(item.id, $event)" aria-label="Subscription actions">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+          </button>
+          <div class="row-menu" *ngIf="openMenuId === item.id" (click)="$event.stopPropagation()">
+            <a class="row-menu-item" [routerLink]="['/orders', item.order_id]">View Details</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

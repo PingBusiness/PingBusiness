@@ -1,0 +1,39 @@
+(routes) {
+  header {
+    -Server
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+
+  @edge_health path /edge-health
+  respond @edge_health "ok" 200
+
+  @api path /api /api/*
+  handle @api {
+    uri strip_prefix /api
+    reverse_proxy {$ESTORE_APP_UPSTREAM:estore-app:5000} {
+      header_up Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Proto {$PUBLIC_SCHEME:https}
+      header_up X-Forwarded-Port {$PUBLIC_PORT:443}
+    }
+  }
+
+  # Keycloak is private and listens at /. Its fixed public hostname includes
+  # /auth, so the edge removes that prefix before forwarding requests.
+  @keycloak path /auth /auth/*
+  handle @keycloak {
+    uri strip_prefix /auth
+    reverse_proxy {$KEYCLOAK_UPSTREAM:keycloak:8080} {
+      header_up Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Proto {$PUBLIC_SCHEME:https}
+      header_up X-Forwarded-Port {$PUBLIC_PORT:443}
+    }
+  }
+
+  handle {
+    reverse_proxy {$MERCHANT_STORE_UPSTREAM:merchant-store:80}
+  }
+}

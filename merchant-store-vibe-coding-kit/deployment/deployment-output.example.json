@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "ready-with-warnings",
+  "platform": "railway",
+  "region": "merchant-selected-region",
+  "storeUrl": "https://shop.example.com",
+  "apiBaseUrl": "https://shop.example.com/api",
+  "keycloakBaseUrl": "https://shop.example.com/auth",
+  "keycloakAdminUrl": "https://shop.example.com/auth/admin/",
+  "platformDashboardUrl": "https://console.example.invalid/project/environment",
+  "sourceCommits": {
+    "vibeKit": "PINNED_COMMIT_SHA",
+    "merchantStore": "PINNED_COMMIT_SHA"
+  },
+  "dns": {
+    "status": "verified",
+    "hostname": "shop.example.com",
+    "certificate": "active"
+  },
+  "tests": {
+    "staticValidation": "passed",
+    "realmBootstrap": "passed",
+    "publicSmokeTest": "passed",
+    "customerAuthentication": "passed",
+    "checkoutStaging": "not-run"
+  },
+  "credentials": {
+    "secretStore": "hosting-platform protected secret controls",
+    "keycloakAdminUsername": "admin",
+    "retrievalInstructions": "Open the protected deployment handoff or platform secret control. Do not copy secrets into public chat or source control.",
+    "secretsPrintedInReport": false
+  },
+  "backup": {
+    "configured": true,
+    "restoreTested": false,
+    "retention": "merchant/platform policy",
+    "instructions": "See docs/BACKUP_AND_RESTORE.md and the platform backup record."
+  },
+  "warnings": [
+    "Staging checkout was not run because no staging payment authorization was supplied."
+  ],
+  "pingbusinessEnvironment": "staging",
+  "bizAppBaseUrl": "https://biz-app.staging.pingbusiness.org"
+}

@@ -1,0 +1,145 @@
+.history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--color-surface);
+}
+
+.table-wrap {
+  width: 100%;
+}
+
+.st-table {
+  min-width: 1000px;
+}
+
+@media (max-width: 1040px) {
+  .table-wrap {
+    overflow-x: auto;
+  }
+}
+
+.st-row {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 8px;
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+.st-row.alt {
+  background: var(--color-surface-subtle);
+}
+
+.st-head {
+  height: 40px;
+  border-bottom: 0.5px solid var(--color-brand);
+}
+
+.st-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-head .st-cell {
+  font-weight: 700;
+}
+
+.st-product {
+  color: var(--color-brand);
+}
+
+.st-status-text {
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-fg-muted);
+}
+
+.st-status-text.active,
+.st-status-text.completed {
+  color: var(--color-status-success);
+}
+
+.st-status-text.pending {
+  color: var(--color-status-waiting);
+}
+
+.st-status-text.cancelled,
+.st-status-text.error {
+  color: var(--color-error);
+}
+
+.st-cta {
+  position: relative;
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.st-kebab {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+}
+
+.st-kebab:hover {
+  color: var(--color-fg);
+}
+
+.row-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  min-width: 150px;
+  margin-top: 4px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(var(--color-shadow-rgb), .14);
+}
+
+.row-menu-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--color-fg);
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.row-menu-item:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-brand);
+}
+
+.no-data {
+  margin: 0;
+  padding: 8px;
+  min-height: 240px;
+  color: var(--color-fg-muted);
+  font-size: 16px;
+  line-height: 24px;
+}

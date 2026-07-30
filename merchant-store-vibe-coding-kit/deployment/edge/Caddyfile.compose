@@ -1,0 +1,13 @@
+{
+  admin off
+  email {$ACME_EMAIL:admin@example.com}
+}
+
+# Docker health check; this listener is not published by Compose.
+:8080 {
+  respond /edge-health "ok" 200
+}
+
+{$STORE_ADDRESS:http://localhost} {
+  import routes
+}
