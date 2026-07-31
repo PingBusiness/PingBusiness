@@ -184,9 +184,11 @@ Return a complete downloadable customized merchant-store source package, not a m
 
 Run npm ci, the production build, the frontend secret scan, and relevant tests. Include DESIGN_REPORT.md with changed files and actual results. Preserve LICENSE, NOTICE, TRADEMARKS.md, and THIRD_PARTY_NOTICES.md; identify modified Ping Business-originated files as required by Apache-2.0.
 
-Then show me the store running before we deploy anything. Follow the "Local preview" section of prompts/DESIGN_PROMPT.md: generate the configuration with prepare-deployment.py --local, bring the Compose stack up with my customized UI as MERCHANT_STORE_BUILD_CONTEXT, and give me the http://localhost address plus the exact commands to start and stop it.
+I need to see the store running before anything is deployed. Follow the "Local preview" section of prompts/DESIGN_PROMPT.md and include HANDOFF.md in the package, telling me to open the launcher's "Deploy store" tab, choose "Local preview (Docker Compose on my machine)" as the hosting platform and "I will attach the customized UI ZIP" as the UI source, and attach your package there. Reproduce the prepare-deployment.py --local and docker compose commands in HANDOFF.md so I can also run them myself.
 
-If your session has no Docker daemon or no container-registry access, say so directly instead of skipping this or reporting checks you did not run: hand me the commands, wait for me to run them and report back, then apply my corrections and show me the rebuilt store again. Only once I confirm I am happy with it should we move to the deployment prompt.`;
+Do not ask me for my merchant identifier, store identifier, or merchant API key in this conversation — the preview step collects those. If I do give them to you and you have a working Docker daemon, you may bring the stack up yourself and give me the http://localhost address; put those values only in the 0600 file the generator writes. If your session has no Docker daemon or no container-registry access, say so directly instead of skipping this or reporting checks you did not run.
+
+Treat my feedback as a loop: I look at the store, come back with corrections, you rebuild and reissue the package. Only once I confirm I am happy with it should we move to a real deployment.`;
   }
 
   function localPreviewPrompt(environment) {

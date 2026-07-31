@@ -46,15 +46,23 @@ it passes every design check and then fails at `compose up` with
 
 ## Local preview
 
-Bring the full stack up on the merchant's machine and iterate with them before
-handing anything to the deployment agent. A static build cannot exercise the live
-catalogue, Keycloak, or checkout, and the merchant cannot approve a store they have
-never seen.
+The merchant must be able to see the store running before committing to a
+deployment. A static build cannot exercise the live catalogue, Keycloak, or
+checkout, and nobody can approve a store they have never seen.
+
+The preview needs a running `estore-app`, which needs the merchant identifier,
+store identifier, and merchant API key. Those are not part of the design brief and
+must not be requested in the design conversation. The design step therefore ships
+the package plus `HANDOFF.md`, and the merchant runs the preview from the
+launcher's **Deploy store** tab with hosting platform **Local preview (Docker
+Compose on my machine)** and UI source **attached ZIP**.
+
+`HANDOFF.md` must reproduce the commands so the merchant can also run them directly:
 
 ```bash
 python3 scripts/prepare-deployment.py --input deployment-input.json --local --output-dir .generated
 cd deployment/compose
-MERCHANT_STORE_BUILD_CONTEXT=/path/to/customized/merchant-store \
+MERCHANT_STORE_BUILD_CONTEXT=/path/to/unzipped/merchant-store \
   docker compose --env-file ../../.generated/compose.env -f compose.yaml up --build -d
 python3 ../../scripts/public-smoke-test.py --store-url http://localhost
 ```
@@ -63,9 +71,11 @@ python3 ../../scripts/public-smoke-test.py --store-url http://localhost
 because a local name has no public DNS and no certificate. It must never be used for
 a real store.
 
-Chat-based agent sessions usually have no Docker daemon and no registry access. When
-that applies, say so plainly, hand the merchant the commands, and wait for their
-result rather than reporting untested checks as passing.
+If the merchant supplies the identifiers and key here, you may run the preview
+yourself; put them only in the 0600 file the generator writes. Chat-based agent
+sessions usually have no Docker daemon and no registry access. When that applies,
+say so plainly, hand the merchant the commands, and wait for their result rather
+than reporting untested checks as passing.
 
 ## Licensing of customized output
 
