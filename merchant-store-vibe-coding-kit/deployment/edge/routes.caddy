@@ -6,8 +6,11 @@
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }
 
-  @edge_health path /edge-health
-  respond @edge_health "ok" 200
+  # Must be a handle: Caddy runs every `handle` before any bare `respond`, so the
+  # catch-all UI handler below would otherwise answer /edge-health with index.html.
+  handle /edge-health {
+    respond "ok" 200
+  }
 
   @api path /api /api/*
   handle @api {

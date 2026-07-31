@@ -46,12 +46,15 @@ services:
       ESTORE_CLIENT_ID: ${ESTORE_CLIENT_ID:-estore-app}
       ESTORE_CLIENT_SECRET: ${ESTORE_CLIENT_SECRET:?ESTORE_CLIENT_SECRET is required}
     healthcheck:
+      # The Keycloak image ships no curl/wget, so probe the management port with
+      # bash's /dev/tcp. Keep this as one shell level: nesting `bash -ec '...'`
+      # here needs quote escaping that no longer parses once YAML folds the block.
       test:
         - CMD-SHELL
         - >-
-          bash -ec 'exec 3<>/dev/tcp/127.0.0.1/9000;
+          exec 3<>/dev/tcp/127.0.0.1/9000;
           printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
-          cat <&3 | grep -q '"'"'status'"'"'[[:space:]]*:[[:space:]]*"'"'UP'"'"''
+          grep -q "\"status\"[[:space:]]*:[[:space:]]*\"UP\"" <&3
       interval: 10s
       timeout: 5s
       retries: 24
