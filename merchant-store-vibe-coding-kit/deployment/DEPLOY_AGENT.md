@@ -29,6 +29,19 @@ Use the relevant adapter:
 - Railway: `deployment/railway/`
 - Coolify: `deployment/coolify/`
 
+`platform` and `pingbusinessEnvironment` are independent. `platform` selects where
+the stack runs; `pingbusinessEnvironment` selects which Ping Business backend it
+talks to and is always `staging` or `production`. There is no third environment,
+and `localhost` is never an environment value — a local preview is
+`platform: "compose"` with `--local`, and it still uses the real staging or
+production backend and the merchant's real credentials.
+
+For a local preview, `storeDomain` is `localhost`, region and DNS mode do not
+apply, and no TLS certificate is obtainable. Do not request a DNS hostname, a
+region, DNS records, or certificates. The merchant API key belongs only in the
+0600 private env file the generator writes — a local run has no platform secret
+store, which does not make the key any less sensitive.
+
 ## Input preparation
 
 After collecting merchant values and creating/receiving the merchant API key securely, create a private JSON file matching `deployment/deployment-input.schema.json` and run:

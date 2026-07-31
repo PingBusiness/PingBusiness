@@ -89,7 +89,7 @@
       <p>Use the default UI or attach the customized UI ZIP/repository from step 1 to the deployment-agent conversation.</p>
       <div class="grid">
         <div><label for="environment">Ping Business environment</label><select id="environment"><option value="staging">Staging / test</option><option value="production">Production</option></select></div>
-        <div><label for="platform">Hosting platform</label><select id="platform"><option value="railway">Railway</option><option value="coolify">Coolify</option><option value="qovery">Qovery</option><option value="northflank">Northflank</option></select></div>
+        <div><label for="platform">Hosting platform</label><select id="platform"><option value="railway">Railway</option><option value="coolify">Coolify</option><option value="qovery">Qovery</option><option value="northflank">Northflank</option><option value="compose">Local preview (Docker Compose on my machine)</option></select></div>
         <div><label for="domain">Store DNS hostname</label><input id="domain" placeholder="shop.example.com" inputmode="url"></div>
         <div><label for="region">Preferred region</label><input id="region" placeholder="Canada Central or nearest available region"></div>
         <div><label for="merchant-id">Merchant identifier</label><input id="merchant-id" autocomplete="off"></div>
@@ -121,8 +121,12 @@
   const KIT_TREE_URL = "https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit";
   const AGENT_ENTRYPOINT_URL = "https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md";
   const BIZ_APP_URLS = Object.freeze({ staging: 'https://biz-app.staging.pingbusiness.org', production: 'https://biz-app.pingbusiness.org' });
-  const PLATFORM_NAMES = Object.freeze({ railway:'Railway', coolify:'Coolify', qovery:'Qovery', northflank:'Northflank' });
-  const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', coolify:'https://coolify.io/', qovery:'https://www.qovery.com/', northflank:'https://northflank.com/' });
+  const PLATFORM_NAMES = Object.freeze({ railway:'Railway', coolify:'Coolify', qovery:'Qovery', northflank:'Northflank', compose:'Docker Compose on the merchant machine' });
+  const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', coolify:'https://coolify.io/', qovery:'https://www.qovery.com/', northflank:'https://northflank.com/', compose:'https://docs.docker.com/compose/' });
+  // A local preview runs on the merchant's own machine, so it has no public DNS
+  // hostname and no region to choose. It still talks to a real Ping Business
+  // backend, so the environment selector above still applies.
+  const isLocalPlatform = platform => platform === 'compose';
   const REQUIRED_DEPLOY_FIELDS = Object.freeze([['domain','store DNS hostname'],['merchant-id','merchant identifier'],['store-id','store identifier']]);
   const $ = id => document.getElementById(id);
   const value = id => $(id).value.trim();
@@ -185,9 +189,50 @@ Then show me the store running before we deploy anything. Follow the "Local prev
 If your session has no Docker daemon or no container-registry access, say so directly instead of skipping this or reporting checks you did not run: hand me the commands, wait for me to run them and report back, then apply my corrections and show me the rebuilt store again. Only once I confirm I am happy with it should we move to the deployment prompt.`;
   }
 
+  function localPreviewPrompt(environment) {
+    const merchantId = value('merchant-id') || '[merchant identifier required]';
+    const storeId = value('store-id') || '[store identifier required]';
+    const uiMode = $('ui-mode').value;
+    const uiDetails = value('ui-source') || (uiMode === 'bundled' ? 'Use source/merchant-store from the kit.' : '[I will provide the customized UI source separately.]');
+    const bizUrl = BIZ_APP_URLS[environment];
+    return `Bring up a Ping Business merchant store locally so I can look at it before it is deployed anywhere.
+
+Authoritative public source:
+- Git clone URL: ${REPOSITORY_URL}
+- Branch: ${REPOSITORY_BRANCH}
+- Kit root inside the monorepo: ${KIT_ROOT_PATH}
+- Kit page: ${KIT_TREE_URL}
+- Agent instructions: ${AGENT_ENTRYPOINT_URL}
+
+Clone the repository root; do not attempt to clone the GitHub tree URL. Read AGENTS.md, deployment/DEPLOY_AGENT.md, deployment/compose/README.md, and the "Local preview" section of prompts/DESIGN_PROMPT.md.
+
+Inputs:
+- Target: Docker Compose on my own machine (not a hosting platform)
+- Ping Business environment: ${environment}
+- Derived BIZ_APP_BASE_URL: ${bizUrl}
+- Store hostname: localhost
+- Merchant identifier: ${merchantId}
+- Store identifier: ${storeId}
+- UI mode: ${uiMode} (${optionLabel('ui-mode')})
+- UI details: ${uiDetails}
+
+This is a preview, not a deployment. The stack runs on my machine, but it still talks to the real ${environment} Ping Business backend at ${bizUrl} using my real merchant credentials, so treat those credentials exactly as carefully as you would for a live store.
+
+Set storeDomain to "localhost" in deployment-input.json, set platform to "compose", and pass --local to scripts/prepare-deployment.py. --local is compose-only, accepts only localhost/127.0.0.1/*.localhost, and serves plain HTTP on port 80 because a local name has no public DNS and therefore no certificate. Do not use it for a real store, and do not ask me for a DNS hostname, a region, DNS records, or TLS certificates — none of them apply here.
+
+The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. For a local preview it belongs only in the generated private env file that prepare-deployment.py writes with mode 0600 — never in the Compose file, the UI, or anything you show me. Treat the merchant/store identifiers as sensitive too.
+
+Use the selected environment exactly; do not accept a free-form replacement for BIZ_APP_BASE_URL. Generate database credentials, the Keycloak bootstrap administrator password, and ESTORE_CLIENT_SECRET securely. Keep Keycloak brute-force protection disabled for this kit version.
+
+If your session has no Docker daemon or no container-registry access, say so directly rather than skipping steps or reporting checks you did not run: give me the exact commands, wait for me to run them and paste the output back, then continue from there.
+
+When it is up, give me the http://localhost address, the command to stop it, and the results of scripts/public-smoke-test.py --store-url http://localhost. Then verify the storefront renders the live ${environment} catalogue, registration and login work against the local Keycloak realm, and no credential appears in the served browser bundle. Report what passed, what failed, and what you could not test. Note that the generator mints a new KEYCLOAK_DB_PASSWORD on every run, so if you regenerate the environment file while an older keycloak-postgres-data volume still exists, Keycloak will fail with a password authentication error — drop the volume or carry the previous KEYCLOAK_DB_* values forward.`;
+  }
+
   function deployPrompt() {
     const environment = $('environment').value;
     const platform = $('platform').value;
+    if (isLocalPlatform(platform)) return localPreviewPrompt(environment);
     const domain = value('domain') || '[store hostname required]';
     const region = value('region') || '[nearest supported region]';
     const merchantId = value('merchant-id') || '[merchant identifier required]';
@@ -232,19 +277,36 @@ Before reporting success, run the kit validator, platform checks, public smoke t
     node.textContent = text;
     node.classList.toggle('incomplete', Boolean(incomplete));
   }
-  const missingDeployFields = () => REQUIRED_DEPLOY_FIELDS.filter(([id]) => !value(id)).map(([, name]) => name);
+  const missingDeployFields = () => REQUIRED_DEPLOY_FIELDS
+    .filter(([id]) => !(isLocalPlatform($('platform').value) && id === 'domain'))
+    .filter(([id]) => !value(id))
+    .map(([, name]) => name);
 
   // Keep both textareas in sync with the form so "Copy prompt" can never hand an agent a stale prompt.
   function refresh(announce) {
     $('design-output').value = designPrompt();
     $('deploy-output').value = deployPrompt();
+    applyLocalPlatformState();
     if (announce === 'design') {
       setStatus($('design-status'), 'Design prompt generated. Attach your assets when you open the AI conversation.');
     } else if (announce === 'deploy') {
       const missing = missingDeployFields();
       if (missing.length) setStatus($('deploy-status'), `Prompt is incomplete — add the ${missing.join(', ')} before sending it to an agent.`, true);
+      else if (isLocalPlatform($('platform').value)) setStatus($('deploy-status'), 'Local preview prompt generated. It runs on your machine and still uses the real Ping Business backend, so the merchant API key stays out of this page.');
       else setStatus($('deploy-status'), 'Deployment prompt generated without the merchant API key.');
     }
+  }
+
+  // A local preview has no public hostname, no region, and no DNS to configure.
+  // Disable those inputs rather than leaving a merchant to guess what applies.
+  function applyLocalPlatformState() {
+    const local = isLocalPlatform($('platform').value);
+    [['domain','shop.example.com'], ['region','Canada Central or nearest available region']].forEach(([id, placeholder]) => {
+      const field = $(id);
+      field.disabled = local;
+      field.placeholder = local ? 'not used for a local preview' : placeholder;
+    });
+    $('dns-mode').disabled = local;
   }
 
   $('generate-design').addEventListener('click', () => refresh('design'));
