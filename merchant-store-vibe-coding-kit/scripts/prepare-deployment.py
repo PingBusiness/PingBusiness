@@ -69,8 +69,21 @@ def optional_string(data: dict[str, Any], key: str, default: str = "") -> str:
     return value
 
 
-def validate_hostname(name: str, value: str) -> str:
+def is_local_hostname(value: str) -> bool:
+    """True for hostnames that only ever resolve on the merchant's own machine.
+
+    These have no public DNS and no obtainable ACME certificate, so the edge must
+    serve plain HTTP and every advertised URL must use http://. Used by the local
+    preview path, never by a real deployment.
+    """
     value = value.strip().lower().rstrip(".")
+    return value in {"localhost", "127.0.0.1", "::1"} or value.endswith(".localhost")
+
+
+def validate_hostname(name: str, value: str, allow_local: bool = False) -> str:
+    value = value.strip().lower().rstrip(".")
+    if allow_local and is_local_hostname(value):
+        return value
     if not HOSTNAME_RE.fullmatch(value):
         raise InputError(f"{name} is not a valid public hostname: {value!r}")
     return value
@@ -145,6 +158,12 @@ def main() -> int:
     parser.add_argument("--repository-url", help="Published public vibe-kit Git URL")
     parser.add_argument("--repository-branch", default=None)
     parser.add_argument("--repository-root-path", default=None, help="Path from repository root to this kit")
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Generate a local preview deployment: allows storeDomain=localhost, "
+        "serves plain HTTP on port 80, and skips ACME. Never use for a real store.",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input).resolve()
@@ -171,8 +190,20 @@ def main() -> int:
     region = optional_string(data, "region", "ca-central")
     if not region:
         raise InputError("region must not be empty")
-    store_domain = validate_hostname("storeDomain", require_string(data, "storeDomain"))
-    store_url = f"https://{store_domain}"
+    store_domain = validate_hostname(
+        "storeDomain", require_string(data, "storeDomain"), allow_local=args.local
+    )
+    local_mode = args.local and is_local_hostname(store_domain)
+    if args.local and not local_mode:
+        raise InputError(
+            "--local requires storeDomain to be localhost, 127.0.0.1, or a *.localhost name; "
+            f"got {store_domain!r}"
+        )
+    if local_mode and platform != "compose":
+        raise InputError("--local is only supported for the compose platform")
+    public_scheme = "http" if local_mode else "https"
+    public_port = "80" if local_mode else "443"
+    store_url = f"{public_scheme}://{store_domain}"
     api_url = f"{store_url}/api"
     keycloak_url = f"{store_url}/auth"
 
@@ -278,9 +309,12 @@ def main() -> int:
         "DEPLOYMENT_NAME": deployment_name,
         "PINGBUSINESS_ENVIRONMENT": pingbusiness_environment,
         "STORE_DOMAIN": store_domain,
-        "STORE_ADDRESS": store_domain,
-        "PUBLIC_SCHEME": "https",
-        "PUBLIC_PORT": "443",
+        # A bare hostname makes Caddy provision ACME. Prefixing the scheme in local
+        # mode tells it to serve plain HTTP instead, which is the only thing that
+        # can work for a name with no public DNS.
+        "STORE_ADDRESS": f"http://{store_domain}" if local_mode else store_domain,
+        "PUBLIC_SCHEME": public_scheme,
+        "PUBLIC_PORT": public_port,
         "ACME_EMAIL": acme_email,
         "BIZ_APP_BASE_URL": biz_app_base_url,
         "PINGBIZ_MERCHANT_IDENTIFIER": merchant_identifier,

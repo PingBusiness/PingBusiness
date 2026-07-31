@@ -66,6 +66,43 @@ npm run build:prod
 python3 ../../scripts/scan-frontend-secrets.py .
 ```
 
+## Local preview
+
+Checks 2-8 below exercise the live catalogue, Keycloak and checkout. None of them
+can run against a static build, so bring the whole stack up on the merchant's own
+machine first and let the merchant look at the result before anything is deployed.
+
+Most chat-based agent sessions have no Docker daemon and no container-registry
+access. If that is your situation, do not fake these checks and do not skip them
+silently: generate the configuration, hand the merchant the two commands below,
+and wait for them to report back.
+
+```bash
+# from the kit root, with the merchant's deployment-input.json (storeDomain: "localhost")
+python3 scripts/prepare-deployment.py --input deployment-input.json --local --output-dir .generated
+
+# MERCHANT_STORE_BUILD_CONTEXT points at the customized source you produced
+cd deployment/compose
+MERCHANT_STORE_BUILD_CONTEXT=/path/to/customized/merchant-store \
+  docker compose --env-file ../../.generated/compose.env -f compose.yaml up --build -d
+```
+
+The store is then at `http://localhost`. Verify it with the kit's own smoke test:
+
+```bash
+python3 scripts/public-smoke-test.py --store-url http://localhost
+```
+
+`--local` is the only supported way to preview: it is compose-only, it accepts
+`localhost` where a real deployment requires a public hostname, and it serves plain
+HTTP because a local name has no DNS and therefore no certificate. Never use it for
+a real store.
+
+Treat this as a loop, not a gate. Show the merchant `http://localhost`, take their
+corrections, rebuild, and show them again. Move on to the deployment prompt only
+once they are happy with what they see. Tear down with
+`docker compose -p <project> down -v` when finished.
+
 Also test at minimum:
 
 1. runtime API URL injection;

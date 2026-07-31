@@ -178,7 +178,11 @@ I will attach the actual brand assets separately. Use only assets I supply or as
 
 Return a complete downloadable customized merchant-store source package, not a mockup or patch fragment. Preserve same-origin /api runtime configuration, authentication and refresh, inventory-aware cart validation, ordinary and recurring checkout behavior, authoritative checkout-status verification, read-only orders/payments, SPA routing, /healthz, and the rule that no merchant API key, Keycloak client secret, server credential, or central biz-app call may appear in browser code.
 
-Run npm ci, the production build, the frontend secret scan, and relevant tests. Include DESIGN_REPORT.md with changed files and actual results. Preserve LICENSE, NOTICE, TRADEMARKS.md, and THIRD_PARTY_NOTICES.md; identify modified Ping Business-originated files as required by Apache-2.0.`;
+Run npm ci, the production build, the frontend secret scan, and relevant tests. Include DESIGN_REPORT.md with changed files and actual results. Preserve LICENSE, NOTICE, TRADEMARKS.md, and THIRD_PARTY_NOTICES.md; identify modified Ping Business-originated files as required by Apache-2.0.
+
+Then show me the store running before we deploy anything. Follow the "Local preview" section of prompts/DESIGN_PROMPT.md: generate the configuration with prepare-deployment.py --local, bring the Compose stack up with my customized UI as MERCHANT_STORE_BUILD_CONTEXT, and give me the http://localhost address plus the exact commands to start and stop it.
+
+If your session has no Docker daemon or no container-registry access, say so directly instead of skipping this or reporting checks you did not run: hand me the commands, wait for me to run them and report back, then apply my corrections and show me the rebuilt store again. Only once I confirm I am happy with it should we move to the deployment prompt.`;
   }
 
   function deployPrompt() {

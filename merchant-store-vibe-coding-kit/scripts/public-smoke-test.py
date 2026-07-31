@@ -20,9 +20,22 @@ def fetch(url: str, *, expect_json: bool = False) -> tuple[int, str, object | No
         return response.status, body, payload, final_url
 
 
-def same_public_host(expected_host: str, final_url: str) -> None:
+def is_local_host(hostname: str | None) -> bool:
+    """Hostnames that only resolve on the operator's own machine.
+
+    A local preview stack has no public DNS and therefore no certificate, so it
+    is reachable over plain HTTP only. Every other origin must still be HTTPS.
+    """
+    if not hostname:
+        return False
+    hostname = hostname.lower()
+    return hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(".localhost")
+
+
+def same_public_host(expected_host: str, final_url: str, allow_http: bool = False) -> None:
     parsed = urlparse(final_url)
-    if parsed.scheme != "https" or parsed.hostname != expected_host:
+    allowed = {"https", "http"} if allow_http else {"https"}
+    if parsed.scheme not in allowed or parsed.hostname != expected_host:
         raise RuntimeError(f"unexpected redirect target: {final_url}")
 
 
@@ -33,9 +46,16 @@ def main() -> int:
     args = parser.parse_args()
     base = args.store_url.rstrip("/") + "/"
     parsed = urlparse(base)
-    if parsed.scheme != "https" or not parsed.hostname:
-        print("FAIL: --store-url must be an HTTPS origin", file=sys.stderr)
+    local = is_local_host(parsed.hostname)
+    if not parsed.hostname or (parsed.scheme != "https" and not (local and parsed.scheme == "http")):
+        print(
+            "FAIL: --store-url must be an HTTPS origin "
+            "(plain HTTP is accepted only for a localhost preview)",
+            file=sys.stderr,
+        )
         return 2
+    if local:
+        print("NOTE: localhost preview — checking over plain HTTP, TLS is not verified")
 
     checks = [
         ("edge", "edge-health", False),
@@ -48,7 +68,7 @@ def main() -> int:
         url = urljoin(base, path)
         try:
             status, body, payload, final_url = fetch(url, expect_json=expect_json)
-            same_public_host(parsed.hostname, final_url)
+            same_public_host(parsed.hostname, final_url, allow_http=local)
             if status != 200:
                 raise RuntimeError(f"HTTP {status}")
             if name == "edge" and body.strip() != "ok":

@@ -205,11 +205,13 @@ def validate_compose() -> None:
         fail(f"only edge may publish host ports; found {exposed}")
     raw = path.read_text(encoding="utf-8")
     required = [
-        "ESTORE_PUBLIC_BASE_URL: https://${STORE_DOMAIN:?STORE_DOMAIN is required}/api",
+        # The scheme is templated so the local preview path can serve plain HTTP.
+        # It still defaults to https, so a real deployment is unchanged.
+        "ESTORE_PUBLIC_BASE_URL: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}/api",
         "ESTORE_KC_SERVER_URL: http://keycloak:8080",
         "ESTORE_APP_PUBLIC_URL: /api",
         "condition: service_completed_successfully",
-        "KC_HOSTNAME: https://${STORE_DOMAIN:?STORE_DOMAIN is required}/auth",
+        "KC_HOSTNAME: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}/auth",
     ]
     for fragment in required:
         if fragment not in raw:
