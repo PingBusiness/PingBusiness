@@ -39,6 +39,7 @@
     .output { margin-top:20px; }
     .output textarea { min-height:330px; font:14px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; background:#111827; color:#f8fafc; border-color:#111827; }
     .status { min-height:24px; color:var(--success); font-weight:700; }
+    .status.incomplete { color:var(--danger); }
     footer { color:var(--muted); font-size:.9rem; margin-top:18px; }
     @media (max-width:700px) { main { margin:20px auto; width:min(100% - 20px,980px); } .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } .panel { padding:18px; } }
   </style>
@@ -59,7 +60,7 @@
 
     <div class="tabs" role="tablist" aria-label="Workflow">
       <button class="tab" id="tab-design" role="tab" aria-selected="true" aria-controls="design">1. Customize UI</button>
-      <button class="tab" id="tab-deploy" role="tab" aria-selected="false" aria-controls="deploy">2. Deploy store</button>
+      <button class="tab" id="tab-deploy" role="tab" aria-selected="false" aria-controls="deploy" tabindex="-1">2. Deploy store</button>
     </div>
 
     <section class="panel" id="design" role="tabpanel" aria-labelledby="tab-design">
@@ -122,17 +123,30 @@
   const BIZ_APP_URLS = Object.freeze({ staging: 'https://biz-app.staging.pingbusiness.org', production: 'https://biz-app.pingbusiness.org' });
   const PLATFORM_NAMES = Object.freeze({ railway:'Railway', coolify:'Coolify', qovery:'Qovery', northflank:'Northflank' });
   const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', coolify:'https://coolify.io/', qovery:'https://www.qovery.com/', northflank:'https://northflank.com/' });
+  const REQUIRED_DEPLOY_FIELDS = Object.freeze([['domain','store DNS hostname'],['merchant-id','merchant identifier'],['store-id','store identifier']]);
   const $ = id => document.getElementById(id);
   const value = id => $(id).value.trim();
+  const optionLabel = id => { const select = $(id); return select.options[select.selectedIndex].textContent.trim(); };
 
-  function showTab(which) {
+  function showTab(which, moveFocus) {
     const design = which === 'design';
     $('design').hidden = !design; $('deploy').hidden = design;
     $('tab-design').setAttribute('aria-selected', String(design));
     $('tab-deploy').setAttribute('aria-selected', String(!design));
+    $('tab-design').tabIndex = design ? 0 : -1;
+    $('tab-deploy').tabIndex = design ? -1 : 0;
+    if (moveFocus) $(design ? 'tab-design' : 'tab-deploy').focus();
   }
   $('tab-design').addEventListener('click', () => showTab('design'));
   $('tab-deploy').addEventListener('click', () => showTab('deploy'));
+  ['tab-design','tab-deploy'].forEach(id => $(id).addEventListener('keydown', event => {
+    const moves = { ArrowRight:'toggle', ArrowLeft:'toggle', Home:'design', End:'deploy' };
+    const move = moves[event.key];
+    if (!move) return;
+    event.preventDefault();
+    const focusedIsDesign = event.currentTarget.id === 'tab-design';
+    showTab(move === 'toggle' ? (focusedIsDesign ? 'deploy' : 'design') : move, true);
+  }));
 
   function designPrompt() {
     const brand = value('brand') || '[merchant/store name]';
@@ -197,8 +211,8 @@ Deployment inputs:
 - Preferred region: ${region}
 - Merchant identifier: ${merchantId}
 - Store identifier: ${storeId}
-- DNS mode: ${dnsMode}
-- UI mode: ${uiMode}
+- DNS mode: ${dnsMode} (${optionLabel('dns-mode')})
+- UI mode: ${uiMode} (${optionLabel('ui-mode')})
 - UI details: ${uiDetails}
 
 The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. Request PINGBIZ_MERCHANT_API_KEY only when you are ready to place it directly into ${PLATFORM_NAMES[platform]}'s protected secret mechanism through an authorized masked input or credential workflow. Treat the merchant/store identifiers as sensitive deployment inputs as well.
@@ -210,17 +224,40 @@ Deploy in this order: configuration and secrets; PostgreSQL; Keycloak; ESTORE re
 Before reporting success, run the kit validator, platform checks, public smoke tests, login/refresh checks, catalogue checks, checkout initiation/status checks, public-exposure checks, and backup verification that are possible in the authorized environment. Return URLs, platform resource IDs, DNS/TLS state, test evidence, protected secret locations and rotation instructions, and unresolved blockers. Never print raw secret values.`;
   }
 
-  $('generate-design').addEventListener('click', () => { $('design-output').value = designPrompt(); $('design-status').textContent = 'Design prompt generated. Attach your assets when you open the AI conversation.'; });
-  $('generate-deploy').addEventListener('click', () => { $('deploy-output').value = deployPrompt(); $('deploy-status').textContent = 'Deployment prompt generated without the merchant API key.'; });
+  function setStatus(node, text, incomplete) {
+    node.textContent = text;
+    node.classList.toggle('incomplete', Boolean(incomplete));
+  }
+  const missingDeployFields = () => REQUIRED_DEPLOY_FIELDS.filter(([id]) => !value(id)).map(([, name]) => name);
+
+  // Keep both textareas in sync with the form so "Copy prompt" can never hand an agent a stale prompt.
+  function refresh(announce) {
+    $('design-output').value = designPrompt();
+    $('deploy-output').value = deployPrompt();
+    if (announce === 'design') {
+      setStatus($('design-status'), 'Design prompt generated. Attach your assets when you open the AI conversation.');
+    } else if (announce === 'deploy') {
+      const missing = missingDeployFields();
+      if (missing.length) setStatus($('deploy-status'), `Prompt is incomplete — add the ${missing.join(', ')} before sending it to an agent.`, true);
+      else setStatus($('deploy-status'), 'Deployment prompt generated without the merchant API key.');
+    }
+  }
+
+  $('generate-design').addEventListener('click', () => refresh('design'));
+  $('generate-deploy').addEventListener('click', () => refresh('deploy'));
+  document.querySelectorAll('#design input, #design textarea, #deploy input, #deploy textarea, #deploy select')
+    .forEach(field => { field.addEventListener('input', () => refresh()); field.addEventListener('change', () => refresh()); });
   document.querySelectorAll('[data-copy]').forEach(button => button.addEventListener('click', async () => {
-    const output = $(button.dataset.copy); const status = button.closest('.panel').querySelector('.status');
-    if (!output.value) { status.textContent = 'Generate the prompt first.'; return; }
-    try { await navigator.clipboard.writeText(output.value); status.textContent = 'Prompt copied.'; }
-    catch { output.focus(); output.select(); status.textContent = 'Select and copy the highlighted prompt.'; }
+    refresh();
+    const output = $(button.dataset.copy); const panel = button.closest('.panel'); const status = panel.querySelector('.status');
+    if (!output.value) { setStatus(status, 'Generate the prompt first.'); return; }
+    const missing = panel.id === 'deploy' ? missingDeployFields() : [];
+    const warn = missing.length ? ` Still missing the ${missing.join(', ')}.` : '';
+    try { await navigator.clipboard.writeText(output.value); setStatus(status, 'Prompt copied.' + warn, missing.length); }
+    catch { output.focus(); output.select(); setStatus(status, 'Select and copy the highlighted prompt.' + warn, missing.length); }
   }));
   $('platform').addEventListener('change', event => { const key = event.target.value; const link = $('open-platform'); link.href = PLATFORM_URLS[key]; link.textContent = `Open ${PLATFORM_NAMES[key]}`; });
-  $('generate-design').click();
-  $('generate-deploy').click();
+  refresh();
 })();
 </script>
 </body>
