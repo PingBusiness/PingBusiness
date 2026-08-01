@@ -87,9 +87,14 @@ Deliver `HANDOFF.md` inside the package with the merchant's exact next step:
 > stack up and give you a `http://localhost` address.
 
 That prompt drives the commands below; reproduce them in `HANDOFF.md` so the merchant
-can also run them directly:
+can also run them directly. The package contains only the UI, so the first step is
+obtaining the kit:
 
 ```bash
+# the package ships the UI only; the stack comes from the kit
+git clone https://github.com/PingBusiness/PingBusiness.git
+cd PingBusiness/merchant-store-vibe-coding-kit
+
 # storeDomain must be "localhost" and platform must be "compose"
 python3 scripts/prepare-deployment.py --input deployment-input.json --local --output-dir .generated
 
@@ -136,7 +141,7 @@ Do not claim a test passed unless you ran it. Explain external-environment block
 
 Return:
 
-- the complete customized source package;
+- the complete customized `source/merchant-store` tree, and nothing else from the kit;
 - a production Dockerfile and unchanged runtime-config contract;
 - `HANDOFF.md` with the local-preview step above, so the merchant can see the store
   running before committing to a deployment;
@@ -145,6 +150,17 @@ Return:
 - a concise list of any merchant decisions still required.
 
 Do not stop at a mockup, image, patch snippet, or partial component.
+
+Do not vendor a copy of the kit into the package. Ship the customized UI tree, the
+legal files, `HANDOFF.md`, and `DESIGN_REPORT.md` — not `deployment/`, `keycloak/`,
+`scripts/`, `prompts/`, `docs/`, `design/`, `website/`, or `source/estore-app`. The
+merchant obtains those by cloning the kit, exactly as `HANDOFF.md` instructs, and
+the preview points `MERCHANT_STORE_BUILD_CONTEXT` at the unzipped UI tree.
+
+A vendored kit copy is not merely redundant. Every platform adapter clones the kit
+from its published repository at deploy time, so edits a merchant makes to a
+bundled `deployment/` directory silently do nothing, and a regenerated
+`CHECKSUMS.sha256` destroys the provenance it exists to record.
 
 ## Licensing of customized output
 

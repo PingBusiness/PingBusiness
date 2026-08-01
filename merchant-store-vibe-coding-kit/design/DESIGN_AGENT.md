@@ -22,7 +22,11 @@ Do not request infrastructure credentials during design.
 8. Fix failures and rerun validation.
 9. Preview the store locally and iterate with the merchant before handing off — see
    "Local preview" below and in `prompts/DESIGN_PROMPT.md`.
-10. Return the complete customized source tree.
+10. Return the complete customized `source/merchant-store` tree only. Do not vendor
+    `deployment/`, `keycloak/`, `scripts/`, `prompts/`, `docs/`, `design/`,
+    `website/`, or `source/estore-app` into the package — the merchant clones the
+    kit for those, and a bundled copy is ignored at deploy time because every
+    platform adapter clones the kit from its published repository.
 11. Include `DESIGN_REPORT.md` with changed files, tokens, assets, commands/results, limitations, and deployment handoff.
 
 ## Deployment handoff
@@ -57,9 +61,12 @@ the package plus `HANDOFF.md`, and the merchant runs the preview from the
 launcher's **Deploy store** tab with hosting platform **Local preview (Docker
 Compose on my machine)** and UI source **attached ZIP**.
 
-`HANDOFF.md` must reproduce the commands so the merchant can also run them directly:
+`HANDOFF.md` must reproduce the commands so the merchant can also run them directly.
+The package ships the UI only, so it starts by obtaining the kit:
 
 ```bash
+git clone https://github.com/PingBusiness/PingBusiness.git
+cd PingBusiness/merchant-store-vibe-coding-kit
 python3 scripts/prepare-deployment.py --input deployment-input.json --local --output-dir .generated
 cd deployment/compose
 MERCHANT_STORE_BUILD_CONTEXT=/path/to/unzipped/merchant-store \
