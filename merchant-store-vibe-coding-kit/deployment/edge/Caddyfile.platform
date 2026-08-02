@@ -4,6 +4,10 @@
   admin off
 }
 
+# Defines the (routes) snippet. Without this file import, `import routes` below
+# fails config adaptation and the edge never starts.
+import routes.caddy
+
 :8080 {
   import routes
 }

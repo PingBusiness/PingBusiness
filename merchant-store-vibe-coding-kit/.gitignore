@@ -1,4 +1,7 @@
 .generated/
+# backup-keycloak-db.sh writes realm dumps here by default; they contain
+# Keycloak state and must never be committed.
+backups/
 **/.terraform/
 *.tfstate
 *.tfstate.*

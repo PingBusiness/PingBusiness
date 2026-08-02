@@ -66,6 +66,62 @@ npm run build:prod
 python3 ../../scripts/scan-frontend-secrets.py .
 ```
 
+## Local preview
+
+Checks 2-8 below exercise the live catalogue, Keycloak and checkout. None of them
+can run against a static build, so bring the whole stack up on the merchant's own
+machine first and let the merchant look at the result before anything is deployed.
+
+The preview needs a running `estore-app`, which needs the merchant identifier, the
+store identifier, and the merchant API key. Those are deliberately not part of the
+design brief and must not be requested in the design conversation. So the design
+step does not run the preview itself — it produces the package and hands off.
+
+Deliver `HANDOFF.md` inside the package with the merchant's exact next step:
+
+> Your customized store is in this package. To see it running on your own machine,
+> open the launcher, go to the **Deploy store** tab, choose **Local preview (Docker
+> Compose on my machine)** as the hosting platform, set UI source to **I will attach
+> the customized UI ZIP**, fill in your merchant and store identifiers, and generate
+> that prompt. Attach this package to the conversation. The agent will bring the
+> stack up and give you a `http://localhost` address.
+
+That prompt drives the commands below; reproduce them in `HANDOFF.md` so the merchant
+can also run them directly. The package contains only the UI, so the first step is
+obtaining the kit:
+
+```bash
+# the package ships the UI only; the stack comes from the kit
+git clone https://github.com/PingBusiness/PingBusiness.git
+cd PingBusiness/merchant-store-vibe-coding-kit
+
+# storeDomain must be "localhost" and platform must be "compose"
+python3 scripts/prepare-deployment.py --input deployment-input.json --local --output-dir .generated
+
+# MERCHANT_STORE_BUILD_CONTEXT points at the unzipped customized source
+cd deployment/compose
+MERCHANT_STORE_BUILD_CONTEXT=/path/to/unzipped/merchant-store \
+  docker compose --env-file ../../.generated/compose.env -f compose.yaml up --build -d
+
+python3 ../../scripts/public-smoke-test.py --store-url http://localhost
+```
+
+`--local` is the only supported way to preview: it is compose-only, it accepts
+`localhost` where a real deployment requires a public hostname, and it serves plain
+HTTP because a local name has no DNS and therefore no certificate. Never use it for
+a real store. Tear down with `docker compose -p <project> down -v`.
+
+Treat this as a loop, not a gate. The merchant looks at `http://localhost`, comes
+back with corrections, and you rebuild and reissue the package. Only once they are
+happy with what they see should they move to a real deployment.
+
+If the merchant does supply the identifiers and key in this conversation, you may run
+the preview yourself. Put them only in the 0600 file the generator writes — never in
+the Compose file, the UI, chat, logs, or `DESIGN_REPORT.md`. Most chat-based agent
+sessions also have no Docker daemon and no container-registry access; if that is your
+situation, say so plainly, hand over the commands, and wait for the merchant to report
+back rather than reporting checks you did not run.
+
 Also test at minimum:
 
 1. runtime API URL injection;
@@ -85,13 +141,26 @@ Do not claim a test passed unless you ran it. Explain external-environment block
 
 Return:
 
-- the complete customized source package;
+- the complete customized `source/merchant-store` tree, and nothing else from the kit;
 - a production Dockerfile and unchanged runtime-config contract;
+- `HANDOFF.md` with the local-preview step above, so the merchant can see the store
+  running before committing to a deployment;
 - `DESIGN_REPORT.md`;
 - validation output;
 - a concise list of any merchant decisions still required.
 
 Do not stop at a mockup, image, patch snippet, or partial component.
+
+Do not vendor a copy of the kit into the package. Ship the customized UI tree, the
+legal files, `HANDOFF.md`, and `DESIGN_REPORT.md` — not `deployment/`, `keycloak/`,
+`scripts/`, `prompts/`, `docs/`, `design/`, `website/`, or `source/estore-app`. The
+merchant obtains those by cloning the kit, exactly as `HANDOFF.md` instructs, and
+the preview points `MERCHANT_STORE_BUILD_CONTEXT` at the unzipped UI tree.
+
+A vendored kit copy is not merely redundant. Every platform adapter clones the kit
+from its published repository at deploy time, so edits a merchant makes to a
+bundled `deployment/` directory silently do nothing, and a regenerated
+`CHECKSUMS.sha256` destroys the provenance it exists to record.
 
 ## Licensing of customized output
 
