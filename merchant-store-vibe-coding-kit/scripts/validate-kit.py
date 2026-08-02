@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_HASHES = {
     "source/estore-app/app.py": "15aa437974087b5e3e4a8333f40863bc4529e6c90c9a0b62416dac987f2bfe84",
     "source/estore-app/requirements.txt": "231ace13723c7d76f6cb1ace0421deb3d776944dd89bb329ff0b568dad8a5030",
-    "keycloak/ESTORE-realm-template.json": "7ea8632c8f2d7dc360ef99ad1ee3a8a21c607e3cb6ac04cf7fdf3c2ddf9dd3b1",
+    "keycloak/ESTORE-realm-template.json": "da5201b68897b87efab5ff2ef96b83a07ab47c3e0408e36a17776d465bb172f4",
 }
 REQUIRED_FILES = [
     "README.md", "AGENTS.md", "CLAUDE.md", "llms.txt", "SOURCE_MANIFEST.md", "SOURCE_PATCHES.md", "VALIDATION_REPORT.md",
