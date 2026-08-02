@@ -52,6 +52,28 @@
     }
   }
 
+  # PaymentAsia callbacks must be served from the domain root, NOT under /api.
+  # biz-app pins them by exact path match and rejects any prefix — see
+  # validate_checkout_callback_urls and _validate_recurring_callback_urls, which
+  # compare `urlparse(url).path != f"/checkout/return/{intent.identifier}"` and
+  # friends. With these routes absent, ESTORE_PUBLIC_BASE_URL has to end in /api,
+  # every create-intent call fails 400 ("return_url must use path ..."), and no
+  # ordinary checkout or subscription can start.
+  #
+  # estore-app already serves these at its own root, so nothing is stripped.
+  # This must stay ABOVE the catch-all UI handler: the Angular app owns the exact
+  # route `checkout`, and its `**` fallback would otherwise swallow these and
+  # redirect the customer home — silently losing the server-to-server notify.
+  @estore_callbacks path /checkout/return/* /checkout/notify/* /recurring/tokenization/return/* /recurring/tokenization/notify/* /recurring/payment/notify
+  handle @estore_callbacks {
+    reverse_proxy {$ESTORE_APP_UPSTREAM:estore-app:5000} {
+      header_up Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Proto {$PUBLIC_SCHEME:https}
+      header_up X-Forwarded-Port {$PUBLIC_PORT:443}
+    }
+  }
+
   # Keycloak is private and listens at /. Its fixed public hostname includes
   # /auth, so the edge removes that prefix before forwarding requests.
   @keycloak path /auth /auth/*
