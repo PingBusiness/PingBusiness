@@ -29,11 +29,27 @@ No server credential is written to the frontend.
 - The supplied legacy Keycloak Dockerfile was used only as reference.
 - `keycloak/Dockerfile` uses modern Keycloak `26.7.0`, PostgreSQL optimization, health/management port `9000`, and startup realm import.
 - `ESTORE-realm-template.json` is portable, contains no live secret, and keeps brute-force protection disabled.
+- `ESTORE-realm-template.json` gives the `${ESTORE_CLIENT_ID}` client an
+  `estore-app-audience` protocol mapper (`oidc-audience-mapper`). `estore-app`
+  validates customer tokens through Keycloak's introspection endpoint, and
+  Keycloak 26.7 rejects that call unless the introspecting client appears in the
+  token `aud`. Customers hold no client roles on `estore-app`, so the default
+  `audience resolve` mapper supplies none. Without this mapper login succeeds but
+  every authenticated endpoint returns 401 with `INTROSPECT_TOKEN_ERROR ...
+  "Client 'estore-app' is not in the token audience"`.
 - `realm-bootstrap/` adds idempotent reconcile-and-verify behavior because startup import intentionally does not overwrite an existing realm.
 
 ## Public edge
 
 - Caddy exposes one hostname.
+- `/api/image/<file_id>` is matched ahead of the general `/api/*` handler and has
+  its `Cache-Control` replaced with `public, max-age=31536000, immutable`.
+  Product images are immutable by `file_id`, but biz-app sends
+  `Cache-Control: no-cache` and `estore-app` relays it verbatim, so without this
+  override every image is revalidated on every page view. Browser and platform-CDN
+  caching are enabled by the header alone; Caddy has no stock equivalent of
+  nginx `proxy_cache`, and `deployment/edge/README.md` records the optional
+  `cache-handler` build for deployments that need a shared origin cache.
 - `/api` is stripped and forwarded privately to `estore-app`.
 - `/auth` is stripped and forwarded privately to Keycloak, whose fixed public hostname remains `https://<store-domain>/auth`.
 - all other paths are forwarded privately to the UI.
