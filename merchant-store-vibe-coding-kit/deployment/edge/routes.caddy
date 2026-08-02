@@ -12,6 +12,35 @@
     respond "ok" 200
   }
 
+  # Product images are immutable: /api/image/<file_id> is addressed by file_id,
+  # and an approved product's files can no longer change. A replacement image is
+  # a new file_id, so a long immutable lifetime can never serve stale bytes.
+  #
+  # This handle must stay ABOVE @api: Caddy evaluates `handle` blocks in source
+  # order and they are mutually exclusive, so the general /api/* handler would
+  # otherwise win and the images would keep biz-app's `Cache-Control: no-cache`.
+  #
+  # The endpoint carries no customer authorization (no bearer token, no
+  # @customer_required in estore-app), so shared caches may store it.
+  @product_image path_regexp ^/api/image/[0-9]+$
+  handle @product_image {
+    uri strip_prefix /api
+    reverse_proxy {$ESTORE_APP_UPSTREAM:estore-app:5000} {
+      header_up Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Host {$PUBLIC_HOST:localhost}
+      header_up X-Forwarded-Proto {$PUBLIC_SCHEME:https}
+      header_up X-Forwarded-Port {$PUBLIC_PORT:443}
+
+      # estore-app relays biz-app's headers verbatim, and biz-app sends
+      # `Cache-Control: no-cache`, which defeats browser and CDN caching.
+      # This bare form is a `set`, which replaces the upstream value outright.
+      # Do NOT also add `header_down -Cache-Control`: Caddy applies deletions
+      # after sets, so the pair strips the header entirely and leaves responses
+      # with no caching directive at all.
+      header_down Cache-Control "public, max-age=31536000, immutable"
+    }
+  }
+
   @api path /api /api/*
   handle @api {
     uri strip_prefix /api
