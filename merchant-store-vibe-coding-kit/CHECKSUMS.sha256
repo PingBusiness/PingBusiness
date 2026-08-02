@@ -39,7 +39,7 @@ cd00b2c946de8cdb6eb04afca5ac7aece1d59ce84585facf6cd1b5151f74b12f  ./deployment/e
 19cde1da6511262ccbed1c4cf325dfc9b676955a9bb27784b0c34497567f6a22  ./deployment/edge/Caddyfile.platform
 a5ed76c5ef21f344459616fa125dbf1dbcd78ed1dcf84cb01940ab4cdcf670d0  ./deployment/edge/Dockerfile
 70190a520f62e5a811840582a540049025bc0b133bdc6ca8b20f343660aa7a29  ./deployment/edge/README.md
-f55d92c85a273bc2bf11d334de9b99dcfbc338af40bd30b221dbc8a36c6c6ca0  ./deployment/edge/routes.caddy
+b98b15171645d7aff193cf6342490153347305355c15959ae42392bca0a78058  ./deployment/edge/routes.caddy
 c66313903a4ccf7e97bb912fdbfefe4ff67e3f3829123a73ab5773962b8e68d5  ./deployment/estore-app.env.example
 97622329fa89d61218fc8c585670453d6dff26c2651c73f3fe354331debfd96e  ./deployment/keycloak.env.example
 a4d247a1bb9c8c6a122f976d2f349f3df0605a42ae5e9c1215ef4c46c5bf6003  ./deployment/northflank/.gitignore
