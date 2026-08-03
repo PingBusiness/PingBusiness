@@ -16,6 +16,10 @@
   min-width: 1000px;
 }
 
+/* Narrow-screen horizontal scroll only. Do NOT set overflow-x/overflow-y on
+   .table-wrap unconditionally: overflow-x: auto coerces overflow-y to auto,
+   making it a vertical scroll container that clips the row menu and shows a
+   spurious vertical scrollbar. */
 @media (max-width: 1040px) {
   .table-wrap {
     overflow-x: auto;
@@ -106,13 +110,14 @@
   color: var(--color-fg);
 }
 
+/* Fixed (viewport-positioned), top/right set inline from the trigger button
+   (see toggleMenu) so an overflow container around the table can never clip it
+   or turn it into a scroll region — keeps the spurious-scrollbar bug from
+   coming back. */
 .row-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 30;
+  position: fixed;
+  z-index: 1000;
   min-width: 150px;
-  margin-top: 4px;
   padding: 4px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);

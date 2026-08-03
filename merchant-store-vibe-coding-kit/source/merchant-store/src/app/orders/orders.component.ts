@@ -24,6 +24,8 @@ export class OrdersComponent implements OnInit, OnDestroy {
   loading = false;
   error = '';
   openMenuId: number | null = null;
+  /** Viewport coordinates for the open row menu (fixed-positioned). */
+  menuPos: { top: number; right: number } | null = null;
   detailOrder: Order | null = null;
   private productNames = new Map<number, string>();
   private products = new Map<number, Product>();
@@ -36,14 +38,29 @@ export class OrdersComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void { this.revokeDetailImages(); }
 
-  toggleMenu(orderId: number | undefined, event: Event): void {
+  toggleMenu(orderId: number | undefined, event: MouseEvent): void {
     event.stopPropagation();
-    this.openMenuId = this.openMenuId === orderId ? null : (orderId ?? null);
+    if (this.openMenuId === orderId) {
+      this.closeMenu();
+      return;
+    }
+    this.openMenuId = orderId ?? null;
+    // Anchor the fixed menu to the trigger button in viewport coordinates.
+    const button = event.currentTarget as HTMLElement | null;
+    if (button) {
+      const rect = button.getBoundingClientRect();
+      this.menuPos = { top: rect.bottom + 4, right: window.innerWidth - rect.right };
+    }
   }
 
+  // Close on any outside click, and on scroll/resize (the fixed menu would
+  // otherwise detach from its button).
   @HostListener('document:click')
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
   closeMenu(): void {
     this.openMenuId = null;
+    this.menuPos = null;
   }
 
   load(): void {
@@ -78,6 +95,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
   openDetail(order: Order, event: Event): void {
     event.stopPropagation();
     this.openMenuId = null;
+    this.menuPos = null;
     this.detailOrder = order;
     this.loadDetailImages(order);
   }

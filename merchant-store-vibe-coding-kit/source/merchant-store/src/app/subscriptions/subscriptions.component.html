@@ -41,7 +41,9 @@
           <button type="button" class="st-kebab" (click)="toggleMenu(item.id, $event)" aria-label="Subscription actions">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
           </button>
-          <div class="row-menu" *ngIf="openMenuId === item.id" (click)="$event.stopPropagation()">
+          <div class="row-menu" *ngIf="openMenuId === item.id"
+            [style.top.px]="menuPos?.top" [style.right.px]="menuPos?.right"
+            (click)="$event.stopPropagation()">
             <a class="row-menu-item" [routerLink]="['/orders', item.order_id]">View Details</a>
           </div>
         </div>

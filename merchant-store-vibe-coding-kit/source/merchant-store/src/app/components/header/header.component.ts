@@ -14,6 +14,9 @@ import { EstoreApiService } from '../../services/estore-api.service';
 })
 export class HeaderComponent implements OnInit {
   menuOpen = false;
+  // API-driven only: starts empty and is set from the store API below. Do NOT
+  // seed this with a hardcoded name or fallback constant — a literal here would
+  // flash on every reload before the real store name loads.
   storeName = '';
   isHome = false;
   cartCount$ = this.cart.count$;

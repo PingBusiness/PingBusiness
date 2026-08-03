@@ -25,6 +25,8 @@ export class SubscriptionsComponent implements OnInit {
   loading = false;
   error = '';
   openMenuId: number | null = null;
+  /** Viewport coordinates for the open row menu (fixed-positioned). */
+  menuPos: { top: number; right: number } | null = null;
   private productNames = new Map<number, string>();
 
   constructor(private api: EstoreApiService, private toast: ToastService) {}
@@ -33,14 +35,29 @@ export class SubscriptionsComponent implements OnInit {
     this.load();
   }
 
-  toggleMenu(itemId: number | undefined, event: Event): void {
+  toggleMenu(itemId: number | undefined, event: MouseEvent): void {
     event.stopPropagation();
-    this.openMenuId = this.openMenuId === itemId ? null : (itemId ?? null);
+    if (this.openMenuId === itemId) {
+      this.closeMenu();
+      return;
+    }
+    this.openMenuId = itemId ?? null;
+    // Anchor the fixed menu to the trigger button in viewport coordinates.
+    const button = event.currentTarget as HTMLElement | null;
+    if (button) {
+      const rect = button.getBoundingClientRect();
+      this.menuPos = { top: rect.bottom + 4, right: window.innerWidth - rect.right };
+    }
   }
 
+  // Close on any outside click, and on scroll/resize (the fixed menu would
+  // otherwise detach from its button).
   @HostListener('document:click')
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
   closeMenu(): void {
     this.openMenuId = null;
+    this.menuPos = null;
   }
 
   load(): void {

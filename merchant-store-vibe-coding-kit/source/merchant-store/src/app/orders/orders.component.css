@@ -17,6 +17,11 @@
   min-width: 900px;
 }
 
+/* Horizontal scroll is only enabled on narrow screens, where the 900px table
+   can't fit. Keep it inside this media query: do NOT set overflow-x/overflow-y
+   on .table-wrap unconditionally. overflow-x: auto coerces overflow-y to auto,
+   which turns the wrapper into a vertical scroll container and clips the
+   absolutely-positioned row menu — producing a spurious vertical scrollbar. */
 @media (max-width: 960px) {
   .table-wrap {
     overflow-x: auto;
@@ -125,13 +130,14 @@
   color: var(--color-fg);
 }
 
+/* Fixed (viewport-positioned), with top/right set inline from the trigger
+   button (see toggleMenu). Rendered relative to the viewport so an overflow
+   container around the table can never clip it or turn it into scroll — this
+   is what keeps the spurious-scrollbar class of bug from ever coming back. */
 .row-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 30;
+  position: fixed;
+  z-index: 1000;
   min-width: 150px;
-  margin-top: 4px;
   padding: 4px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);

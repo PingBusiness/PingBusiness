@@ -1,6 +1,8 @@
 <section class="hero">
   <div class="hero-inner">
     <div class="hero-content">
+      <!-- API-driven: bind store?.name only. Do NOT add a `|| 'Some Name'`
+           fallback or a hardcoded constant — it flashes before the API loads. -->
       <h1 class="hero-title">{{ store?.name }}</h1>
       <p class="hero-tagline">Figma UI kits, web templates, and icon sets for indie founders and vibe coders.</p>
     </div>
