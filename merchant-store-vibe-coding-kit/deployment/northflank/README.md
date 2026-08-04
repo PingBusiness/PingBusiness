@@ -26,6 +26,22 @@ because a template created it, and the template deliberately keeps
 store. Without those `Build` nodes the following `Condition` (service running)
 never resolves and the whole run stalls and rolls back.
 
+## Internal service-to-service addressing
+
+Internal wiring uses `${refs.<service>.id}` as the hostname, never
+`${refs.<service>.ports.0.dns}`. The `.dns` ref returns the service's **public**
+Northflank domain, and Northflank serves public domains on 80/443 while routing
+to the container port — so `http://<public-dns>:8080` is wrong twice over and
+nothing inside the project can reach it. Within a project a service is addressed
+as `<service-id>:<container-port>`, which is what the ref id yields and what the
+edge Caddyfile already defaults to (`keycloak:8080`, `estore-app:5000`,
+`merchant-store:80`).
+
+This governs `KC_SERVER_URL` (realm bootstrap), `ESTORE_KC_SERVER_URL`
+(`estore-app`), and the three edge upstreams. Only genuinely public URLs —
+`KC_HOSTNAME`, `ESTORE_PUBLIC_BASE_URL`, `ESTORE_ALLOWED_ORIGINS` — are built
+from `STORE_DOMAIN`.
+
 ## Platform constraints
 
 - Free projects exist only in `europe-west` and `us-central`, and the free

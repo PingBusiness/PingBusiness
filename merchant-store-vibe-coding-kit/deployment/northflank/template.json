@@ -368,7 +368,7 @@
                       "ESTORE_REALM": "${args.ESTORE_REALM}",
                       "ESTORE_CLIENT_ID": "${args.ESTORE_CLIENT_ID}",
                       "ESTORE_CLIENT_SECRET": "${args.ESTORE_CLIENT_SECRET}",
-                      "KC_SERVER_URL": "http://${refs.keycloak.ports.0.dns}:8080"
+                      "KC_SERVER_URL": "http://${refs.keycloak.id}:8080"
                     },
                     "files": {}
                   },
@@ -471,7 +471,7 @@
                       "PINGBIZ_MERCHANT_IDENTIFIER": "${args.PINGBIZ_MERCHANT_IDENTIFIER}",
                       "PINGBIZ_STORE_IDENTIFIER": "${args.PINGBIZ_STORE_IDENTIFIER}",
                       "PINGBIZ_MERCHANT_API_KEY": "${args.PINGBIZ_MERCHANT_API_KEY}",
-                      "ESTORE_KC_SERVER_URL": "http://${refs.keycloak.ports.0.dns}:8080",
+                      "ESTORE_KC_SERVER_URL": "http://${refs.keycloak.id}:8080",
                       "ESTORE_REALM": "${args.ESTORE_REALM}",
                       "ESTORE_CLIENT_ID": "${args.ESTORE_CLIENT_ID}",
                       "ESTORE_CLIENT_SECRET": "${args.ESTORE_CLIENT_SECRET}",
@@ -760,9 +760,9 @@
                     "PUBLIC_HOST": "${args.STORE_DOMAIN}",
                     "PUBLIC_SCHEME": "https",
                     "PUBLIC_PORT": "443",
-                    "ESTORE_APP_UPSTREAM": "${refs.estoreApp.ports.0.dns}:5000",
-                    "KEYCLOAK_UPSTREAM": "${refs.keycloak.ports.0.dns}:8080",
-                    "MERCHANT_STORE_UPSTREAM": "${refs.merchantStore.ports.0.dns}:80"
+                    "ESTORE_APP_UPSTREAM": "${refs.estoreApp.id}:5000",
+                    "KEYCLOAK_UPSTREAM": "${refs.keycloak.id}:8080",
+                    "MERCHANT_STORE_UPSTREAM": "${refs.merchantStore.id}:80"
                   },
                   "runtimeFiles": {},
                   "buildArguments": {},
