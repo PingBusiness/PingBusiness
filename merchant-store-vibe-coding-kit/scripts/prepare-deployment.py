@@ -23,6 +23,7 @@ HOSTNAME_RE = re.compile(
 )
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{2,39}$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
 PLACEHOLDER_RE = re.compile(r"(?:REPLACE_WITH|__REQUIRED|example\.com)", re.IGNORECASE)
 BIZ_APP_BASE_URLS = {
     "staging": "https://biz-app.staging.pingbusiness.org",
@@ -66,6 +67,14 @@ def optional_string(data: dict[str, Any], key: str, default: str = "") -> str:
     value = value.strip()
     if "\x00" in value or "\n" in value or "\r" in value:
         raise InputError(f"{key} must be one line")
+    return value
+
+
+def optional_git_sha(value: str, name: str) -> str:
+    """Validate an optional exact-commit pin. Empty means 'build the branch head'."""
+    value = value.strip()
+    if value and not GIT_SHA_RE.fullmatch(value):
+        raise InputError(f"{name} must be a 7-40 character hexadecimal Git commit SHA")
     return value
 
 
@@ -157,6 +166,7 @@ def main() -> int:
     parser.add_argument("--output-dir", default=".generated", help="Private output directory")
     parser.add_argument("--repository-url", help="Published public vibe-kit Git URL")
     parser.add_argument("--repository-branch", default=None)
+    parser.add_argument("--repository-sha", default=None, help="Exact kit commit SHA to pin builds to (optional)")
     parser.add_argument("--repository-root-path", default=None, help="Path from repository root to this kit")
     parser.add_argument(
         "--local",
@@ -248,6 +258,7 @@ def main() -> int:
     kit_repo = require_object(data.get("kitRepository"), "kitRepository")
     repository_url = args.repository_url or optional_string(kit_repo, "url", DEFAULT_KIT_REPOSITORY_URL) or DEFAULT_KIT_REPOSITORY_URL
     repository_branch = args.repository_branch or optional_string(kit_repo, "branch", DEFAULT_KIT_REPOSITORY_BRANCH)
+    repository_sha = optional_git_sha(args.repository_sha or optional_string(kit_repo, "sha", ""), "kitRepository.sha")
     repository_root_path = normalize_root_path(
         args.repository_root_path or optional_string(kit_repo, "rootPath", DEFAULT_KIT_REPOSITORY_ROOT_PATH),
         "kitRepository.rootPath",
@@ -268,11 +279,14 @@ def main() -> int:
             raise InputError("Bundled managed-platform UI requires the published kit repository URL")
         ui_repository_url = repository_url or ""
         ui_branch = repository_branch
+        # The bundled UI is the same checkout as the kit, so it pins to the same commit.
+        ui_sha = repository_sha
         ui_root_path = join_root_path(repository_root_path, "source/merchant-store")
         ui_dockerfile_path = "Dockerfile"
     else:
         ui_repository_url = normalize_repo_url("uiSource.repositoryUrl", require_string(ui, "repositoryUrl"))
         ui_branch = optional_string(ui, "branch", "main")
+        ui_sha = optional_git_sha(optional_string(ui, "sha", ""), "uiSource.sha")
         ui_root_path = normalize_root_path(optional_string(ui, "rootPath", "/"))
         ui_dockerfile_path = optional_string(ui, "dockerfilePath", "Dockerfile")
         if ui_dockerfile_path.startswith("/") or ".." in Path(ui_dockerfile_path).parts:
@@ -394,9 +408,11 @@ def main() -> int:
             "REGION": region,
             "KIT_REPOSITORY_URL": repository_url,
             "KIT_REPOSITORY_BRANCH": repository_branch,
+            "KIT_REPOSITORY_SHA": repository_sha,
             "KIT_REPOSITORY_ROOT_PATH": repository_root_path,
             "UI_REPOSITORY_URL": ui_repository_url,
             "UI_REPOSITORY_BRANCH": ui_branch,
+            "UI_REPOSITORY_SHA": ui_sha,
             "UI_DOCKER_WORK_DIR": ui_root_path,
             "UI_DOCKERFILE_PATH": f"{ui_root_path.rstrip('/')}/{ui_dockerfile_path}" if ui_root_path != "/" else f"/{ui_dockerfile_path}",
             "PINGBUSINESS_ENVIRONMENT": pingbusiness_environment,
@@ -534,6 +550,7 @@ def main() -> int:
         "uiSourceMode": ui_mode,
         "kitRepositoryUrl": repository_url,
         "kitRepositoryBranch": repository_branch,
+        "kitRepositorySha": repository_sha,
         "kitRepositoryRootPath": repository_root_path,
         "generatedFilesContainSecrets": True,
         "secretsPrinted": False,
