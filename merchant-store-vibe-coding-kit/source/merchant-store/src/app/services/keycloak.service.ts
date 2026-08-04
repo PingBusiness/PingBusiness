@@ -1,10 +1,24 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpResponse
+} from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { catchError, map, timeout } from 'rxjs/operators';
+import {
+  catchError,
+  finalize,
+  map,
+  shareReplay,
+  switchMap,
+  tap,
+  timeout
+} from 'rxjs/operators';
 
-import { APP_URL } from '../app.configs';
+import { APP_URL, AUTH_REFRESH_SKEW_MS } from '../app.configs';
 import { Utils } from '../utils';
+
 
 @Injectable({ providedIn: 'root' })
 export class KeycloakService {
@@ -24,6 +38,7 @@ export class KeycloakService {
   clearSession = Utils.clearSession;
 
   private readonly requestTimeoutMs = 30000;
+  private refreshing: Observable<string> | null = null;
 
   private authStateSubject = new BehaviorSubject<boolean>(this.isAuthenticated());
   authState$ = this.authStateSubject.asObservable();
@@ -41,53 +56,38 @@ export class KeycloakService {
   isAuthenticated(): boolean {
     const accessToken = this.getSessionString(this.ACCESS_TOKEN);
     const refreshToken = this.getSessionString(this.REFRESH_TOKEN);
-    const refreshExpiry = this.getSessionNumber(this.REFRESH_EXPIRY);
     if (!accessToken && !refreshToken) {
       return false;
     }
-    return !refreshExpiry || Date.now() < refreshExpiry;
+    return !this.isExpired(this.REFRESH_EXPIRY);
   }
 
   login(username: string, password: string): Observable<any> {
-    const now = Date.now();
     const loginUrl = `${APP_URL}/login`;
     const json = { username, password };
 
-    return new Observable((observer) => {
-      this.http.post(loginUrl, json, { observe: 'response' }).subscribe({
-        next: (response: HttpResponse<any>) => {
-          if (response.status === 200 && response.body?.access_token) {
-            this.setSessionString(this.ACCESS_TOKEN, response.body.access_token);
-            this.setSessionString(this.REFRESH_TOKEN, response.body.refresh_token || '');
+    return this.http.post(loginUrl, json, { observe: 'response' }).pipe(
+      switchMap((response: HttpResponse<any>) => {
+        this.clearAuthenticationState(false);
+        const accessToken = this.storeTokenResponse(response.body);
 
-            // Set to 5 seconds early to avoid using a token at the exact expiry boundary.
-            this.setSessionNumber(this.EXPIRY, now + ((response.body.expires_in || 0) - 5) * 1000);
-            this.setSessionNumber(this.REFRESH_EXPIRY, now + ((response.body.refresh_expires_in || 0) - 5) * 1000);
+        const encodedUsername = encodeURIComponent(username);
+        const userUrl = `${APP_URL}/user?username=${encodedUsername}`;
+        const headers = new HttpHeaders({ Authorization: `Bearer ${accessToken}` });
 
-            const encodedUsername = encodeURIComponent(username);
-            const userUrl = `${APP_URL}/user?username=${encodedUsername}`;
-            const headers = new HttpHeaders({ Authorization: `Bearer ${response.body.access_token}` });
-
-            this.http.get(userUrl, { headers }).subscribe({
-              next: (data) => {
-                this.setUser(data);
-                this.authStateSubject.next(true);
-                observer.next(data);
-                observer.complete();
-              },
-              error: (error) => {
-                console.error('GET request error', error);
-                this.clearAuthSession();
-                observer.error(error);
-              }
-            });
-          } else {
-            observer.error(response.body || { error: 'Unauthorized' });
-          }
-        },
-        error: (error) => observer.error(error)
-      });
-    });
+        return this.http.get(userUrl, { headers }).pipe(
+          tap((data) => {
+            this.setUser(data);
+            this.authStateSubject.next(true);
+          }),
+          catchError((error) => {
+            console.error('GET request error', error);
+            this.clearAuthSession();
+            return throwError(() => error);
+          })
+        );
+      })
+    );
   }
 
   logout(): Observable<any> {
@@ -101,62 +101,19 @@ export class KeycloakService {
   }
 
   clearAuthSession(): void {
-    this.clearSession(this.ACCESS_TOKEN);
-    this.clearSession(this.REFRESH_TOKEN);
-    this.clearSession(this.EXPIRY);
-    this.clearSession(this.REFRESH_EXPIRY);
-    this.clearSession('USER');
-    this.authStateSubject.next(false);
+    this.clearAuthenticationState(true);
   }
 
-  // Return access token. Automatically refresh through estore-app /refresh if already expired.
-  getAccessToken(): Observable<string> {
-    const now = Date.now();
+  // Return a live access token. A token at/near expiry is renewed first.
+  // The optional flag is additive and preserves all existing no-argument callers.
+  getAccessToken(forceRefresh: boolean = false): Observable<string> {
     const accessToken = this.getSessionString(this.ACCESS_TOKEN);
-    const refreshToken = this.getSessionString(this.REFRESH_TOKEN);
-    const expiry = this.getSessionNumber(this.EXPIRY);
-    const refreshExpiry = this.getSessionNumber(this.REFRESH_EXPIRY);
 
-    if (!accessToken && !refreshToken) {
-      this.clearAuthSession();
-      return of('');
+    if (!forceRefresh && accessToken && !this.isExpired(this.EXPIRY)) {
+      return of(accessToken);
     }
 
-    if (refreshExpiry && now >= refreshExpiry) {
-      this.clearAuthSession();
-      return of('');
-    }
-
-    if (expiry && now >= expiry && refreshToken) {
-      const url = `${APP_URL}/refresh`;
-      const json = { refresh_token: refreshToken };
-      return this.http.post(url, json, { observe: 'response' }).pipe(
-        timeout(this.requestTimeoutMs),
-        map((response: any) => {
-          if (response.status === 200 && response.body?.access_token) {
-            this.setSessionString(this.ACCESS_TOKEN, response.body.access_token);
-            if (response.body.refresh_token) {
-              this.setSessionString(this.REFRESH_TOKEN, response.body.refresh_token);
-            }
-            this.setSessionNumber(this.EXPIRY, Date.now() + ((response.body.expires_in || 0) - 5) * 1000);
-            if (response.body.refresh_expires_in) {
-              this.setSessionNumber(this.REFRESH_EXPIRY, Date.now() + (response.body.refresh_expires_in - 5) * 1000);
-            }
-            this.authStateSubject.next(true);
-            console.log('Access token renewed');
-            return response.body.access_token;
-          }
-          this.clearAuthSession();
-          return '';
-        }),
-        catchError((error) => {
-          this.clearAuthSession();
-          return throwError(() => error);
-        })
-      );
-    }
-
-    return of(accessToken);
+    return this.renewAccessToken();
   }
 
   getValidAccessToken(): Observable<string> {
@@ -164,87 +121,169 @@ export class KeycloakService {
   }
 
   get(url: string, blob?: boolean): Observable<any> {
-    return new Observable((observer) => {
-      this.getAccessToken().subscribe({
-        next: (accessToken) => {
-          if (!accessToken) {
-            observer.error({ error: 'Not authenticated' });
-            return;
-          }
-          const headers = new HttpHeaders({ Authorization: `Bearer ${accessToken}` });
-          const options: any = { headers };
-          if (blob) {
-            options.responseType = 'blob';
-          }
-
-          this.http.get(url, options).pipe(timeout(this.requestTimeoutMs)).subscribe({
-            next: (data) => {
-              observer.next(data);
-              observer.complete();
-            },
-            error: (error) => {
-              console.error('GET request error', error);
-              observer.error(error);
-            }
-          });
-        },
-        error: (error) => observer.error(error)
-      });
-    });
+    return this.authedRequest((accessToken) => {
+      const headers = new HttpHeaders({ Authorization: `Bearer ${accessToken}` });
+      const options: any = { headers };
+      if (blob) {
+        options.responseType = 'blob';
+      }
+      return this.http.get(url, options).pipe(timeout(this.requestTimeoutMs));
+    }).pipe(
+      catchError((error) => {
+        console.error('GET request error', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   post(url: string, requestBody: any, responseType: 'json' | 'text' = 'json'): Observable<any> {
-    return new Observable((observer) => {
-      this.getAccessToken().subscribe({
-        next: (accessToken) => {
-          if (!accessToken) {
-            observer.error({ error: 'Not authenticated' });
-            return;
-          }
-          const headers = { Authorization: `Bearer ${accessToken}` };
-          const options: any = { headers };
-          if (responseType === 'text') {
-            options.responseType = 'text';
-          }
-
-          this.http.post(url, requestBody, options).pipe(timeout(this.requestTimeoutMs)).subscribe({
-            next: (data) => {
-              observer.next(data);
-              observer.complete();
-            },
-            error: (error) => {
-              console.error('POST request error', error);
-              observer.error(error);
-            }
-          });
-        },
-        error: (error) => observer.error(error)
-      });
-    });
+    return this.authedRequest((accessToken) => {
+      const headers = { Authorization: `Bearer ${accessToken}` };
+      const options: any = { headers };
+      if (responseType === 'text') {
+        options.responseType = 'text';
+      }
+      return this.http.post(url, requestBody, options).pipe(timeout(this.requestTimeoutMs));
+    }).pipe(
+      catchError((error) => {
+        console.error('POST request error', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   delete(url: string, body?: any): Observable<any> {
-    return new Observable((observer) => {
-      this.getAccessToken().subscribe({
-        next: (accessToken) => {
-          if (!accessToken) {
-            observer.error({ error: 'Not authenticated' });
-            return;
-          }
-          const headers = { Authorization: `Bearer ${accessToken}` };
-          this.http.delete(url, { headers, body: body ? body : undefined }).pipe(timeout(this.requestTimeoutMs)).subscribe({
-            next: (data) => {
-              observer.next(data);
-              observer.complete();
-            },
-            error: (error) => {
-              console.error('DELETE request error', error);
-              observer.error(error);
-            }
-          });
-        },
-        error: (error) => observer.error(error)
-      });
+    return this.authedRequest((accessToken) => {
+      const headers = { Authorization: `Bearer ${accessToken}` };
+      return this.http.delete(url, {
+        headers,
+        body: body ? body : undefined
+      }).pipe(timeout(this.requestTimeoutMs));
+    }).pipe(
+      catchError((error) => {
+        console.error('DELETE request error', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private authedRequest<T>(call: (accessToken: string) => Observable<T>): Observable<T> {
+    return this.getAccessToken().pipe(
+      switchMap((accessToken) => call(accessToken)),
+      catchError((error: any) => {
+        if (!this.isUnauthorized(error) || !this.getSessionString(this.REFRESH_TOKEN)) {
+          return throwError(() => error);
+        }
+
+        return this.renewAccessToken().pipe(
+          switchMap((accessToken) => call(accessToken))
+        );
+      })
+    );
+  }
+
+  private renewAccessToken(): Observable<string> {
+    if (this.refreshing) {
+      return this.refreshing;
+    }
+
+    const refreshToken = this.getSessionString(this.REFRESH_TOKEN);
+    if (!refreshToken || this.isExpired(this.REFRESH_EXPIRY)) {
+      this.clearAuthSession();
+      return throwError(() => this.sessionExpiredError());
+    }
+
+    const url = `${APP_URL}/refresh`;
+    const json = { refresh_token: refreshToken };
+
+    this.refreshing = this.http.post(url, json, { observe: 'response' }).pipe(
+      timeout(this.requestTimeoutMs),
+      map((response: HttpResponse<any>) => {
+        const accessToken = this.storeTokenResponse(response.body);
+        this.authStateSubject.next(true);
+        console.log('Access token renewed');
+        return accessToken;
+      }),
+      catchError((error: any) => {
+        if (this.isUnauthorizedOrForbidden(error)) {
+          this.clearAuthSession();
+          return throwError(() => this.sessionExpiredError());
+        }
+
+        // Preserve the stored session after network, timeout, or server errors.
+        return throwError(() => error);
+      }),
+      finalize(() => {
+        this.refreshing = null;
+      }),
+      shareReplay(1)
+    );
+
+    return this.refreshing;
+  }
+
+  private storeTokenResponse(body: any): string {
+    const accessToken = body && body.access_token;
+    if (!accessToken) {
+      throw new Error('Token response did not include a usable access token');
+    }
+
+    const now = Date.now();
+    this.setSessionString(this.ACCESS_TOKEN, accessToken);
+
+    // Preserve the existing refresh token when the provider omits an unchanged one.
+    if (body.refresh_token) {
+      this.setSessionString(this.REFRESH_TOKEN, body.refresh_token);
+    }
+
+    if (this.isPositiveNumber(body.expires_in)) {
+      this.setSessionNumber(this.EXPIRY, now + body.expires_in * 1000);
+    }
+    if (this.isPositiveNumber(body.refresh_expires_in)) {
+      this.setSessionNumber(this.REFRESH_EXPIRY, now + body.refresh_expires_in * 1000);
+    }
+
+    return accessToken;
+  }
+
+  private isExpired(key: string): boolean {
+    const expiry = this.getSessionNumber(key);
+    return !!expiry && Date.now() >= expiry - AUTH_REFRESH_SKEW_MS;
+  }
+
+  private isPositiveNumber(value: any): boolean {
+    return typeof value === 'number' && isFinite(value) && value > 0;
+  }
+
+  private isUnauthorized(error: any): boolean {
+    return error instanceof HttpErrorResponse
+      ? error.status === 401
+      : error && error.status === 401;
+  }
+
+  private isUnauthorizedOrForbidden(error: any): boolean {
+    const status = error instanceof HttpErrorResponse
+      ? error.status
+      : error && error.status;
+    return status === 401 || status === 403;
+  }
+
+  private clearAuthenticationState(clearUser: boolean): void {
+    this.clearSession(this.ACCESS_TOKEN);
+    this.clearSession(this.REFRESH_TOKEN);
+    this.clearSession(this.EXPIRY);
+    this.clearSession(this.REFRESH_EXPIRY);
+    if (clearUser) {
+      this.clearSession('USER');
+    }
+    this.authStateSubject.next(false);
+  }
+
+  private sessionExpiredError(): HttpErrorResponse {
+    return new HttpErrorResponse({
+      status: 401,
+      statusText: 'Unauthorized',
+      error: { error: 'Your session has expired. Please sign in again.' }
     });
   }
 }
