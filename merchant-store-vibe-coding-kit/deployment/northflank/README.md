@@ -26,6 +26,16 @@ because a template created it, and the template deliberately keeps
 store. Without those `Build` nodes the following `Condition` (service running)
 never resolves and the whole run stalls and rolls back.
 
+Each `Build` node must also name the ref to build. Northflank's build action
+requires one of `branch` / `sha` / `pullRequestId`; a node that carries only
+`{id, type}` is rejected at run time with HTTP 400 *"Must provide either sha,
+branch or pullRequestId"*, which rolls the whole run back at the first build
+(Keycloak). Every node therefore pins `branch` — `${args.KIT_REPOSITORY_BRANCH}`
+for the four kit-built resources and `${args.UI_REPOSITORY_BRANCH}` for the
+storefront UI — plus an optional exact `${args.KIT_REPOSITORY_SHA}` /
+`${args.UI_REPOSITORY_SHA}` for reproducible commit pinning. Leave the `*_SHA`
+arguments empty to track the branch head.
+
 ## Internal service-to-service addressing
 
 Internal wiring uses `${refs.<service>.id}` as the hostname, never
@@ -121,6 +131,26 @@ A customized UI repository must retain the runtime container contract:
 - answer `/healthz` with HTTP 200;
 - accept `ESTORE_APP_PUBLIC_URL=/api` at startup;
 - never contain merchant credentials or the Keycloak client secret.
+
+## Backups
+
+The template provisions PostgreSQL as a managed Northflank addon but does not
+create a backup schedule, because a scheduled snapshot is a separate addon
+sub-resource (not an addon-spec field). Enable one after provisioning — one
+click in the addon's **Backups** tab, or via the API — so the ESTORE realm and
+customer/user data are protected. A daily Northflank-managed snapshot retained
+for 7 days (no external destination required) is a sensible default:
+
+```json
+{
+  "scheduling": { "interval": "daily", "minute": [0], "hour": [2] },
+  "backupType": "snapshot",
+  "retentionTime": 7
+}
+```
+
+Restore from the same **Backups** tab. For off-site copies, add a backup
+destination and set `additionalDestinations`.
 
 ## Release gate
 

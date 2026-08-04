@@ -44,7 +44,25 @@ store, which does not make the key any less sensitive.
 
 ## Input preparation
 
-After collecting merchant values and creating/receiving the merchant API key securely, create a private JSON file matching `deployment/deployment-input.schema.json` and run:
+### Handling the merchant API key and identifiers (never expose)
+
+The `merchantApiKey` and the `merchantIdentifier` / `storeIdentifier` are
+sensitive. Never accept them in a chat message, a prompt, a URL, generated
+markdown, a screenshot, or a log, and never print their values back. Collect
+them only through one of these masked paths:
+
+- Run `scripts/collect-merchant-secrets.sh path/to/deployment-input.json` — it
+  reads each value with a silent prompt and writes it straight into the 0600
+  input file, echoing nothing. Populate every non-secret field first, then run
+  it to fill the three sensitive ones.
+- Or, for a managed platform, type them directly into the platform's own masked
+  secret field (e.g. the Northflank secret-group editor) after provisioning.
+
+Either way the value belongs only in a 0600 file or the platform's protected
+secret store — never in the agent's context, chat, or a public report.
+
+After the sensitive values are in the private JSON file matching
+`deployment/deployment-input.schema.json`, run:
 
 ```sh
 python3 scripts/prepare-deployment.py --input deployment-input.json --output-dir .generated
