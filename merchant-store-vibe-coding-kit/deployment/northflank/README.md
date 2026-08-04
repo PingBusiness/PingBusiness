@@ -19,6 +19,25 @@ The workflow creates resources sequentially:
 5. private default or customized merchant-store UI;
 6. one public edge service linked to the merchant hostname.
 
+Every service and the bootstrap job is followed by an explicit `Build` action
+node with `condition: success`. Northflank does **not** build a service just
+because a template created it, and the template deliberately keeps
+`disabledCI: true` so an upstream push cannot silently redeploy a merchant
+store. Without those `Build` nodes the following `Condition` (service running)
+never resolves and the whole run stalls and rolls back.
+
+## Platform constraints
+
+- Free projects exist only in `europe-west` and `us-central`, and the free
+  Developer Sandbox plan cannot host this stack — the team must be on
+  pay-as-you-go with a default payment method.
+- Only large build SKUs are build-capable; keep `BUILD_PLAN` at
+  `nf-compute-400-16` or higher. A deployment plan such as `nf-compute-200-8`
+  is rejected as a build plan.
+- Layer caching (`buildSettings.dockerfile.buildkit.useCache`) is a gated
+  feature, so the committed template ships with it disabled.
+- Port names are limited to 8 characters.
+
 Northflank clones `https://github.com/PingBusiness/PingBusiness` and receives `KIT_REPOSITORY_ROOT_PATH=/merchant-store-vibe-coding-kit`.
 
 ## Nontechnical merchant flow

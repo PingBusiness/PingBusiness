@@ -270,7 +270,7 @@
                     {
                       "internalPort": 9000,
                       "protocol": "HTTP",
-                      "name": "management",
+                      "name": "mgmt",
                       "public": false,
                       "domains": [],
                       "security": {
@@ -283,12 +283,10 @@
                   "buildSettings": {
                     "dockerfile": {
                       "buildEngine": "buildkit",
-                      "useCache": true,
                       "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak",
                       "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak/Dockerfile",
                       "buildkit": {
-                        "useInternalCache": true,
-                        "internalCacheStorage": 16384
+                        "useCache": false
                       }
                     }
                   },
@@ -310,8 +308,7 @@
                       "initialDelaySeconds": 20,
                       "periodSeconds": 10,
                       "timeoutSeconds": 5,
-                      "failureThreshold": 30,
-                      "successThreshold": 1
+                      "failureThreshold": 30
                     },
                     {
                       "protocol": "HTTP",
@@ -332,10 +329,17 @@
                       "initialDelaySeconds": 60,
                       "periodSeconds": 20,
                       "timeoutSeconds": 5,
-                      "failureThreshold": 6,
-                      "successThreshold": 1
+                      "failureThreshold": 6
                     }
                   ]
+                }
+              },
+              {
+                "kind": "Build",
+                "condition": "success",
+                "spec": {
+                  "id": "${refs.keycloak.id}",
+                  "type": "service"
                 }
               },
               {
@@ -409,12 +413,10 @@
                   "buildSettings": {
                     "dockerfile": {
                       "buildEngine": "buildkit",
-                      "useCache": true,
                       "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak",
                       "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/keycloak/realm-bootstrap/Dockerfile",
                       "buildkit": {
-                        "useInternalCache": true,
-                        "internalCacheStorage": 16384
+                        "useCache": false
                       }
                     }
                   },
@@ -432,11 +434,17 @@
                   "buildFiles": {},
                   "disabledCI": true,
                   "healthChecks": [],
-                  "settings": {
-                    "backoffLimit": 2,
-                    "runOnSourceChange": "never",
-                    "activeDeadlineSeconds": 900
-                  }
+                  "backoffLimit": 2,
+                  "runOnSourceChange": "never",
+                  "activeDeadlineSeconds": 900
+                }
+              },
+              {
+                "kind": "Build",
+                "condition": "success",
+                "spec": {
+                  "id": "${refs.bootstrapJob.id}",
+                  "type": "job"
                 }
               },
               {
@@ -536,12 +544,10 @@
                   "buildSettings": {
                     "dockerfile": {
                       "buildEngine": "buildkit",
-                      "useCache": true,
                       "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/source/estore-app",
                       "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/source/estore-app/Dockerfile",
                       "buildkit": {
-                        "useInternalCache": true,
-                        "internalCacheStorage": 16384
+                        "useCache": false
                       }
                     }
                   },
@@ -574,10 +580,17 @@
                       "initialDelaySeconds": 60,
                       "periodSeconds": 20,
                       "timeoutSeconds": 5,
-                      "failureThreshold": 6,
-                      "successThreshold": 1
+                      "failureThreshold": 6
                     }
                   ]
+                }
+              },
+              {
+                "kind": "Build",
+                "condition": "success",
+                "spec": {
+                  "id": "${refs.estoreApp.id}",
+                  "type": "service"
                 }
               },
               {
@@ -668,12 +681,10 @@
                   "buildSettings": {
                     "dockerfile": {
                       "buildEngine": "buildkit",
-                      "useCache": true,
                       "dockerWorkDir": "${args.UI_DOCKER_WORK_DIR}",
                       "dockerFilePath": "${args.UI_DOCKERFILE_PATH}",
                       "buildkit": {
-                        "useInternalCache": true,
-                        "internalCacheStorage": 16384
+                        "useCache": false
                       }
                     }
                   },
@@ -699,6 +710,14 @@
                       "successThreshold": 1
                     }
                   ]
+                }
+              },
+              {
+                "kind": "Build",
+                "condition": "success",
+                "spec": {
+                  "id": "${refs.merchantStore.id}",
+                  "type": "service"
                 }
               },
               {
@@ -773,12 +792,10 @@
                   "buildSettings": {
                     "dockerfile": {
                       "buildEngine": "buildkit",
-                      "useCache": true,
                       "dockerWorkDir": "${args.KIT_REPOSITORY_ROOT_PATH}/deployment/edge",
                       "dockerFilePath": "${args.KIT_REPOSITORY_ROOT_PATH}/deployment/edge/Dockerfile",
                       "buildkit": {
-                        "useInternalCache": true,
-                        "internalCacheStorage": 16384
+                        "useCache": false
                       }
                     }
                   },
@@ -804,6 +821,14 @@
                       "successThreshold": 1
                     }
                   ]
+                }
+              },
+              {
+                "kind": "Build",
+                "condition": "success",
+                "spec": {
+                  "id": "${refs.edge.id}",
+                  "type": "service"
                 }
               },
               {
