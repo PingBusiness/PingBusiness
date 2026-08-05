@@ -472,7 +472,7 @@
                       "DEV_MODE": "false",
                       "ESTORE_APP_PORT": "5000",
                       "BIZ_APP_BASE_URL": "${args.BIZ_APP_BASE_URL}",
-                      "ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}/api",
+                      "ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}",
                       "PINGBIZ_MERCHANT_IDENTIFIER": "${args.PINGBIZ_MERCHANT_IDENTIFIER}",
                       "PINGBIZ_STORE_IDENTIFIER": "${args.PINGBIZ_STORE_IDENTIFIER}",
                       "PINGBIZ_MERCHANT_API_KEY": "${args.PINGBIZ_MERCHANT_API_KEY}",

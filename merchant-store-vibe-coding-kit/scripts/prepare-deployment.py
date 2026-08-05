@@ -468,7 +468,12 @@ def main() -> int:
                 "ESTORE_REALM": realm,
                 "ESTORE_CLIENT_ID": client_id,
                 "ESTORE_CLIENT_SECRET": client_secret,
-                "ESTORE_PUBLIC_BASE_URL": api_url,
+                # The store root, NOT the /api base. estore-app builds PaymentAsia
+                # callbacks as {this}/checkout/return/<id>, and biz-app pins those
+                # by exact path, so an /api prefix fails every create-intent with
+                # HTTP 400 and no checkout can start. The edge routes the callback
+                # paths from the root already; see deployment/edge/routes.caddy.
+                "ESTORE_PUBLIC_BASE_URL": store_url,
                 "ESTORE_ALLOWED_ORIGINS": store_url,
             },
             "merchant-store": {"ESTORE_APP_PUBLIC_URL": "/api"},

@@ -29,7 +29,8 @@ Record evidence for every item.
 
 - [ ] Required values are stored in protected platform controls.
 - [ ] Internal Keycloak URL is used.
-- [ ] `ESTORE_PUBLIC_BASE_URL=https://<store-domain>/api`.
+- [ ] `ESTORE_PUBLIC_BASE_URL=https://<store-domain>` — the store root, with no
+      `/api` suffix, so PaymentAsia callbacks match the exact paths biz-app pins.
 - [ ] `ESTORE_ALLOWED_ORIGINS=https://<store-domain>`.
 - [ ] Proxy trust is enabled only behind the controlled edge.
 - [ ] Startup merchant/store scope resolution succeeds.

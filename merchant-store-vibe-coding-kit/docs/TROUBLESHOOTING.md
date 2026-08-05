@@ -30,7 +30,9 @@ Ensure `ESTORE_ALLOWED_ORIGINS` exactly matches the storefront origin including 
 
 ## Wrong callback hostname or scheme
 
-Check `ESTORE_PUBLIC_BASE_URL`, trusted proxy settings, and ingress forwarding headers. The public URL must be the storefront HTTPS origin followed by `/api`, not a Docker/private hostname.
+Check `ESTORE_PUBLIC_BASE_URL`, trusted proxy settings, and ingress forwarding headers. It must be the storefront HTTPS origin and nothing more — `https://<store-domain>`, not a Docker/private hostname, and **not** the `/api` base.
+
+If checkout fails immediately with HTTP 400 from biz-app and a message about `return_url` using the wrong path, this is the cause. `estore-app` builds callbacks as `{ESTORE_PUBLIC_BASE_URL}/checkout/return/<id>`, and biz-app compares that path exactly. An `/api` suffix yields `/api/checkout/return/<id>` and is rejected, so no ordinary checkout or subscription can start.
 
 ## UI points to the wrong API
 

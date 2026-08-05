@@ -154,3 +154,42 @@ sanctioned way to obtain the kit and would fill the gap from memory.
   source, because a customization built on a remembered Angular app satisfies no
   runtime-config, trust-boundary, or checkout contract that the deployment later
   depends on.
+
+## ESTORE_PUBLIC_BASE_URL is the store root, not the /api base
+
+Found in a live Railway deployment, where checkout could only be made to work by
+overriding the value the kit generates.
+
+`estore-app` uses `ESTORE_PUBLIC_BASE_URL` for exactly one thing: building the
+PaymentAsia callback URLs, as `{base}/checkout/return/<id>` and
+`{base}/checkout/notify/<id>` plus the recurring equivalents. biz-app pins those
+by exact path. With the documented `https://<host>/api`, every create-intent call
+produced `/api/checkout/return/<id>`, was rejected with HTTP 400, and no ordinary
+checkout or subscription could start. Nothing stripped the prefix before building
+the URLs, and nothing was meant to — `deployment/edge/routes.caddy` already
+routes the five callback paths from the root, and its comment describes this
+exact failure mode.
+
+The tell was in the code all along: when `ESTORE_PUBLIC_BASE_URL` is unset,
+`public_base_url()` falls back to the forwarded scheme and host — the store root,
+with no `/api`. The documented value contradicted the code's own default.
+
+Corrected to `https://<store-domain>` in `scripts/prepare-deployment.py`,
+`deployment/compose/compose.yaml`, `deployment/northflank/template.json`,
+`deployment/estore-app.env.example`, `deployment/railway/variables.example.json`,
+`deployment/DEPLOYMENT_ACCEPTANCE_CHECKLIST.md`, `docs/ARCHITECTURE.md`, and
+`docs/TROUBLESHOOTING.md`. `ARCHITECTURE.md` had also recorded a wrong rationale,
+claiming the edge strips `/api` before forwarding callbacks; it does that for
+`/api/*` only, which is a different route.
+
+`ESTORE_APP_PUBLIC_URL` stays `/api`. That is the browser-to-backend path and is
+unrelated to server-to-server callbacks.
+
+`scripts/validate-kit.py` asserted the wrong form in both the Compose and
+Northflank contracts, so the bug was locked in by the test that was supposed to
+protect it. Those assertions are corrected, and a `validate_callback_base_url`
+check now scans every file for an `ESTORE_PUBLIC_BASE_URL` assignment ending in
+`/api`, confirms the edge still routes the callback paths from the root, and
+confirms the generator emits `store_url`. Each of the five committed
+configurations was individually reverted to the broken form to confirm the check
+fails on it.

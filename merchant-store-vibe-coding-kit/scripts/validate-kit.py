@@ -170,6 +170,50 @@ def validate_ui_source_is_merchant_supplied(schema: dict, script: str) -> None:
     ok("the kit's UI is a customization reference only and cannot be selected for deployment")
 
 
+def validate_callback_base_url() -> None:
+    """ESTORE_PUBLIC_BASE_URL is the store root, never the /api base.
+
+    `estore-app` builds PaymentAsia callbacks as
+    `{ESTORE_PUBLIC_BASE_URL}/checkout/return/<id>` and biz-app pins those by
+    exact path, so an `/api` suffix fails every create-intent with HTTP 400 and
+    no checkout can start. Every adapter got this wrong at once, so it is worth
+    a check of its own rather than one assertion per adapter.
+    """
+    offenders = []
+    # Capture to end of line, not to the first space: the Compose value contains
+    # spaces (`${STORE_DOMAIN:?STORE_DOMAIN is required}`) and a whitespace-
+    # terminated pattern silently skips the very file most likely to regress.
+    assignment = re.compile(r"""ESTORE_PUBLIC_BASE_URL["']?\s*[:=]\s*(.+)""")
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or any(part in {"node_modules", ".git", "__pycache__", ".generated"} for part in path.parts):
+            continue
+        if path.name in {"CHECKSUMS.sha256", "validate-kit.py"} or path.suffix.lower() not in {
+            ".md", ".json", ".yaml", ".yml", ".py", ".example", ".sh", ".caddy"
+        } and not path.name.endswith(".env.example"):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for value in assignment.findall(content):
+            value = value.strip().rstrip(",").strip("\"'").rstrip("/")
+            if value.endswith("/api"):
+                offenders.append(f"{path.relative_to(ROOT)} -> {value}")
+    if offenders:
+        fail("ESTORE_PUBLIC_BASE_URL must be the store root, not the /api base: " + ", ".join(offenders))
+        return
+    # The edge must carry the callback paths from the root, or the root-form
+    # value above has nowhere to land.
+    routes = text("deployment/edge/routes.caddy")
+    for callback_path in ["/checkout/return/*", "/checkout/notify/*", "/recurring/tokenization/notify/*", "/recurring/payment/notify"]:
+        if callback_path not in routes:
+            fail(f"edge does not route the PaymentAsia callback path {callback_path} from the root")
+    generator = text("scripts/prepare-deployment.py")
+    if '"ESTORE_PUBLIC_BASE_URL": store_url' not in generator:
+        fail("deployment generator must emit the store root for ESTORE_PUBLIC_BASE_URL")
+    ok("ESTORE_PUBLIC_BASE_URL is the store root and the edge routes callbacks from the root")
+
+
 def validate_realm() -> None:
     realm = json.loads(text("keycloak/ESTORE-realm-template.json"))
     if realm.get("bruteForceProtected") is not False:
@@ -241,7 +285,8 @@ def validate_compose() -> None:
     required = [
         # The scheme is templated so the local preview path can serve plain HTTP.
         # It still defaults to https, so a real deployment is unchanged.
-        "ESTORE_PUBLIC_BASE_URL: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}/api",
+        # Store root, no /api — see validate_callback_base_url below.
+        "ESTORE_PUBLIC_BASE_URL: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}\n",
         "ESTORE_KC_SERVER_URL: http://keycloak:8080",
         "ESTORE_APP_PUBLIC_URL: /api",
         "condition: service_completed_successfully",
@@ -293,7 +338,7 @@ def validate_northflank() -> None:
             fail(f"Northflank adapter missing monorepo build path: {path_fragment}")
     for fragment in [
         '"ESTORE_APP_PUBLIC_URL": "/api"',
-        '"ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}/api"',
+        '"ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}"',
         '"KC_HOSTNAME": "https://${args.STORE_DOMAIN}/auth"',
         '"GUNICORN_WORKERS": "2"',
         '"GUNICORN_THREADS": "4"',
@@ -519,6 +564,7 @@ def main() -> int:
     validate_required_files()
     validate_hashes()
     validate_input_schema()
+    validate_callback_base_url()
     validate_realm()
     validate_ui()
     validate_compose()

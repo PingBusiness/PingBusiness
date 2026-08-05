@@ -70,10 +70,21 @@ database credentials.
 
 ## Checkout callbacks
 
-`ESTORE_PUBLIC_BASE_URL=https://<store-domain>/api` causes return and notification
-URLs to point to the public edge, which strips `/api` before forwarding to the
-backend. Payment completion is accepted only from authoritative backend status,
-not browser messages.
+`ESTORE_PUBLIC_BASE_URL` is the store root: `https://<store-domain>`, with no
+`/api` suffix. `estore-app` builds return and notification URLs as
+`{ESTORE_PUBLIC_BASE_URL}/checkout/return/<id>` and
+`{ESTORE_PUBLIC_BASE_URL}/checkout/notify/<id>`, and biz-app pins those by exact
+path. An `/api` prefix produces `/api/checkout/return/<id>`, which biz-app
+rejects with HTTP 400, so no checkout can start.
+
+This is why the edge routes `/checkout/return/*`, `/checkout/notify/*`, and the
+recurring equivalents straight from the root to `estore-app` without stripping a
+prefix — unlike `/api/*`, which is stripped. The two are separate concerns:
+`/api` is the browser-to-backend path, the root paths are PaymentAsia's
+server-to-server callbacks. See `deployment/edge/routes.caddy`.
+
+Payment completion is accepted only from authoritative backend status, not
+browser messages.
 
 ## Dependency graph
 
