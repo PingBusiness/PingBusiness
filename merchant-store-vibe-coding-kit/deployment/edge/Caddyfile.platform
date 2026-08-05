@@ -1,5 +1,5 @@
 {
-  # Qovery/Northflank terminate TLS and forward HTTP to this private service.
+  # Northflank/Railway terminate TLS and forward HTTP to this private service.
   auto_https off
   admin off
 }

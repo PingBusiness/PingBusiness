@@ -86,16 +86,16 @@
 
     <section class="panel" id="deploy" role="tabpanel" aria-labelledby="tab-deploy" hidden>
       <h2>Deploy the complete store stack</h2>
-      <p>Use the default UI or attach the customized UI ZIP/repository from step 1 to the deployment-agent conversation.</p>
+      <p>Complete step 1 first. Every deployment builds your customized UI package or repository — the kit's own storefront is a reference implementation to customize, not something to put in front of customers.</p>
       <div class="grid">
         <div><label for="environment">Ping Business environment</label><select id="environment"><option value="staging">Staging / test</option><option value="production">Production</option></select></div>
-        <div><label for="platform">Hosting platform</label><select id="platform"><option value="railway">Railway</option><option value="coolify">Coolify</option><option value="qovery">Qovery</option><option value="northflank">Northflank</option><option value="compose">Local preview (Docker Compose on my machine)</option></select></div>
+        <div><label for="platform">Hosting platform</label><select id="platform"><option value="railway">Railway</option><option value="northflank">Northflank</option><option value="selfhost">Self-hosted (my own server or VPS)</option><option value="compose">Local preview (Docker Compose on my machine)</option></select></div>
         <div><label for="domain">Store DNS hostname</label><input id="domain" placeholder="shop.example.com" inputmode="url"></div>
         <div><label for="region">Preferred region</label><input id="region" placeholder="Canada Central or nearest available region"></div>
         <div><label for="merchant-id">Merchant identifier</label><input id="merchant-id" autocomplete="off"></div>
         <div><label for="store-id">Store identifier</label><input id="store-id" autocomplete="off"></div>
         <div><label for="dns-mode">DNS handling</label><select id="dns-mode"><option value="manual">Show me the DNS record to create</option><option value="provider-api">Configure DNS using a narrowly scoped token requested later</option></select></div>
-        <div><label for="ui-mode">UI source</label><select id="ui-mode"><option value="bundled">Use the default UI from the kit</option><option value="attached">I will attach the customized UI ZIP to the AI conversation</option><option value="git">Use my customized UI Git repository</option></select></div>
+        <div><label for="ui-mode">UI source</label><select id="ui-mode"><option value="git">Use my customized UI Git repository</option><option value="attached">I will attach the customized UI ZIP to the AI conversation</option></select></div>
         <div class="wide"><label for="ui-source">Customized UI details (optional)</label><textarea id="ui-source" placeholder="For Git: repository URL, branch, source root, and Dockerfile path. For attached ZIP: describe the filename you will attach."></textarea></div>
       </div>
       <div class="notice warning"><strong>Do not paste the merchant API key into this page.</strong> It is intentionally excluded from the generated prompt. The deployment agent must request it only when it can place the value directly into the selected platform's protected secret store as <code>PINGBIZ_MERCHANT_API_KEY</code>.</div>
@@ -120,13 +120,25 @@
   const KIT_ROOT_PATH = "/merchant-store-vibe-coding-kit";
   const KIT_TREE_URL = "https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit";
   const AGENT_ENTRYPOINT_URL = "https://raw.githubusercontent.com/PingBusiness/PingBusiness/main/merchant-store-vibe-coding-kit/AGENTS.md";
+  // What a merchant downloads and attaches when their assistant has no repository
+  // or web access at all. Without this an agent that cannot read the kit tends to
+  // invent one from memory instead of saying so.
+  const RELEASE_ZIP_URL = "https://github.com/PingBusiness/PingBusiness/releases/latest/download/pingbusiness-merchant-store-vibe-coding-kit.zip";
+  const CANNOT_FETCH_KIT = `If you cannot retrieve the kit yourself — no repository access, no file access, and no web access, which is normal for a chat-only assistant — say so before anything else and ask me to download ${RELEASE_ZIP_URL} and attach it to this conversation. Name the specific files you need if the whole archive is too large to attach. Do not reconstruct the kit from memory: a plausible-looking answer that does not match the real source fails only after I have deployed it, which is far worse than telling me you need the files.`;
   const BIZ_APP_URLS = Object.freeze({ staging: 'https://biz-app.staging.pingbusiness.org', production: 'https://biz-app.pingbusiness.org' });
-  const PLATFORM_NAMES = Object.freeze({ railway:'Railway', coolify:'Coolify', qovery:'Qovery', northflank:'Northflank', compose:'Docker Compose on the merchant machine' });
-  const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', coolify:'https://coolify.io/', qovery:'https://www.qovery.com/', northflank:'https://northflank.com/', compose:'https://docs.docker.com/compose/' });
+  const PLATFORM_NAMES = Object.freeze({ railway:'Railway', northflank:'Northflank', selfhost:'the merchant server', compose:'Docker Compose on the merchant machine' });
+  const PLATFORM_URLS = Object.freeze({ railway:'https://railway.com/', northflank:'https://northflank.com/', selfhost:'https://docs.docker.com/engine/install/', compose:'https://docs.docker.com/compose/' });
+  // Self-hosting and the local preview are the same Compose adapter; they differ
+  // only in whether a real public hostname and certificate are involved. The kit
+  // therefore knows one platform value for both.
+  const KIT_PLATFORM = Object.freeze({ railway:'railway', northflank:'northflank', selfhost:'compose', compose:'compose' });
   // A local preview runs on the merchant's own machine, so it has no public DNS
   // hostname and no region to choose. It still talks to a real Ping Business
   // backend, so the environment selector above still applies.
   const isLocalPlatform = platform => platform === 'compose';
+  // Self-hosting needs a real hostname and DNS, but the merchant has already
+  // chosen where the box lives, so a region selector is meaningless.
+  const isSelfHostPlatform = platform => platform === 'selfhost';
   const REQUIRED_DEPLOY_FIELDS = Object.freeze([['domain','store DNS hostname'],['merchant-id','merchant identifier'],['store-id','store identifier']]);
   const $ = id => document.getElementById(id);
   const value = id => $(id).value.trim();
@@ -170,6 +182,8 @@ Authoritative public source:
 
 Retrieve the public repository yourself and read AGENTS.md, design/DESIGN_AGENT.md, prompts/DESIGN_PROMPT.md, docs/ESTORE_APP_API_SPEC.md, docs/SECURITY.md, and the complete source/merchant-store tree under the kit root before editing. Never use the obsolete /estore-ui tree elsewhere in the monorepo.
 
+${CANNOT_FETCH_KIT}
+
 Brand inputs:
 - Store name: ${brand}
 - Primary colour: ${primary}
@@ -197,7 +211,7 @@ Treat my feedback as a loop: I look at the store, come back with corrections, yo
     const merchantId = value('merchant-id') || '[merchant identifier required]';
     const storeId = value('store-id') || '[store identifier required]';
     const uiMode = $('ui-mode').value;
-    const uiDetails = value('ui-source') || (uiMode === 'bundled' ? 'Use source/merchant-store from the kit.' : '[I will provide the customized UI source separately.]');
+    const uiDetails = value('ui-source') || (uiMode === 'git' ? '[Customized UI repository URL, branch, source root, and Dockerfile path required.]' : '[I will attach the customized UI package to this conversation.]');
     const bizUrl = BIZ_APP_URLS[environment];
     return `Bring up a Ping Business merchant store locally so I can look at it before it is deployed anywhere.
 
@@ -209,6 +223,8 @@ Authoritative public source:
 - Agent instructions: ${AGENT_ENTRYPOINT_URL}
 
 Clone the repository root; do not attempt to clone the GitHub tree URL. Read AGENTS.md, deployment/DEPLOY_AGENT.md, deployment/compose/README.md, and the "Local preview" section of prompts/DESIGN_PROMPT.md.
+
+${CANNOT_FETCH_KIT}
 
 Inputs:
 - Target: Docker Compose on my own machine (not a hosting platform)
@@ -222,6 +238,8 @@ Inputs:
 
 This is a preview, not a deployment. The stack runs on my machine, but it still talks to the real ${environment} Ping Business backend at ${bizUrl} using my real merchant credentials, so treat those credentials exactly as carefully as you would for a live store.
 
+Preview my customized UI, never the kit's own storefront. source/merchant-store in the kit is a reference implementation to customize, not a storefront to run; uiSource.mode has no value that builds it, and scripts/prepare-deployment.py rejects an input that points back at it. Unpack the customized package I give you and set uiSource.mode to "local" with uiSource.path set to its absolute path, or use mode "git" with my customized repository. If I have not given you a customized UI yet, say so and stop — the point of this preview is to look at mine.
+
 Set storeDomain to "localhost" in deployment-input.json, set platform to "compose", and pass --local to scripts/prepare-deployment.py. --local is compose-only, accepts only localhost/127.0.0.1/*.localhost, and serves plain HTTP on port 80 because a local name has no public DNS and therefore no certificate. Do not use it for a real store, and do not ask me for a DNS hostname, a region, DNS records, or TLS certificates — none of them apply here.
 
 The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. For a local preview it belongs only in the generated private env file that prepare-deployment.py writes with mode 0600 — never in the Compose file, the UI, or anything you show me. Treat the merchant/store identifiers as sensitive too.
@@ -233,17 +251,81 @@ If your session has no Docker daemon or no container-registry access, say so dir
 When it is up, give me the http://localhost address, the command to stop it, and the results of scripts/public-smoke-test.py --store-url http://localhost. Then verify the storefront renders the live ${environment} catalogue, registration and login work against the local Keycloak realm, and no credential appears in the served browser bundle. Report what passed, what failed, and what you could not test. Note that the generator mints a new KEYCLOAK_DB_PASSWORD on every run, so if you regenerate the environment file while an older keycloak-postgres-data volume still exists, Keycloak will fail with a password authentication error — drop the volume or carry the previous KEYCLOAK_DB_* values forward.`;
   }
 
+  function selfHostPrompt(environment) {
+    const domain = value('domain') || '[store hostname required]';
+    const merchantId = value('merchant-id') || '[merchant identifier required]';
+    const storeId = value('store-id') || '[store identifier required]';
+    const dnsMode = $('dns-mode').value;
+    const uiMode = $('ui-mode').value;
+    const uiDetails = value('ui-source') || (uiMode === 'git' ? '[Customized UI repository URL, branch, source root, and Dockerfile path required.]' : '[I will attach the customized UI package to this conversation.]');
+    const bizUrl = BIZ_APP_URLS[environment];
+    return `Deploy a complete Ping Business merchant store on my own server, which I run myself. This is a real production-shape deployment on hardware I control, not a local preview and not a hosted platform.
+
+Authoritative public source:
+- Git clone URL: ${REPOSITORY_URL}
+- Branch: ${REPOSITORY_BRANCH}
+- Kit root inside the monorepo: ${KIT_ROOT_PATH}
+- Kit page: ${KIT_TREE_URL}
+- Agent instructions: ${AGENT_ENTRYPOINT_URL}
+
+Clone the repository root; do not attempt to clone the GitHub tree URL. Pin the exact commit deployed. Read AGENTS.md, deployment/DEPLOY_AGENT.md, deployment/SELF_HOSTING.md, and deployment/compose/README.md under the kit root. deployment/SELF_HOSTING.md is the authoritative runbook for this target — follow it rather than improvising.
+
+Deployment inputs:
+- Target: my own server, using the kit's Compose adapter with platform "${KIT_PLATFORM.selfhost}" and a real public hostname (no --local)
+- Ping Business environment: ${environment}
+- Derived BIZ_APP_BASE_URL: ${bizUrl}
+- Store hostname: ${domain}
+- Merchant identifier: ${merchantId}
+- Store identifier: ${storeId}
+- DNS handling: ${dnsMode} (${optionLabel('dns-mode')})
+- UI mode: ${uiMode} (${optionLabel('ui-mode')})
+- UI details: ${uiDetails}
+
+Deploy my customized UI, never the kit's own storefront. source/merchant-store in the kit is a reference implementation that exists to be customized; it carries demonstration branding and must not be put in front of my customers. uiSource.mode has no value that builds it, and scripts/prepare-deployment.py rejects an input that points back at it. On my own server, use uiSource.mode "git" with my customized repository, or mode "local" with uiSource.path set to the absolute path of my customized tree on that server — the "Using a customized UI" section of deployment/SELF_HOSTING.md covers getting a ZIP up there. If I have not given you a customized UI, stop and ask for it rather than deploying the kit's storefront.
+
+Start by telling me what you can and cannot do in this session: retrieve this kit, run python3, and run shell commands on my server. If I have given you SSH or terminal access to the server, use it and run the steps yourself, showing me the actual output of each one. If you have no access to the server — which is the normal case for a chat-only assistant — say so plainly and act as my guide instead: exact copy-pasteable commands, one step at a time, waiting for me to paste the output back before continuing. Either way, do not claim a step succeeded that you did not see output for.
+
+${CANNOT_FETCH_KIT}
+
+Before generating anything, walk me through the prerequisites in deployment/SELF_HOSTING.md and confirm each one, because a missing item here fails at certificate issuance rather than now. Run the "Prepare the server" preflight from that file, or give it to me to run:
+- a server with a public IPv4 address and root or sudo access, at least 2 vCPU / 4 GB RAM / 20 GB disk, and 8 GB or added swap if the Angular UI is built on that machine
+- Docker Engine 24+ with the Compose v2 plugin, plus git and python3
+- "ss -lntp" showing nothing already bound to port 80 or 443
+- an A record for ${domain} pointing at that server's public IP, which we verify with "dig +short ${domain}" before deploying
+- inbound TCP ports 80 and 443 open in both the OS firewall and any cloud provider security group
+- my Ping Business merchant identifier, store identifier, and merchant API key
+- a real email address I actually read, for certificate expiry warnings — do not leave the example value in place
+- my acceptance that I own uptime, patching, and backups on this box
+
+Explain plainly that TLS is automatic: the edge runs Caddy, which obtains and renews a Let's Encrypt certificate on its own once ${domain} resolves to the server and port 80 is reachable from the internet. I do not buy, download, or install a certificate, and I do not need certbot or a renewal cron job. Tell me that port 80 must stay open even though the store is HTTPS-only, because it carries the ACME challenge and the HTTPS redirect, and that if I put a proxying CDN in front of this I must leave it in DNS-only mode until the first certificate is issued.
+
+Set platform to "${KIT_PLATFORM.selfhost}" and storeDomain to ${domain} in deployment-input.json. Do not pass --local: it is only for localhost previews, serves plain HTTP, and skips certificates entirely.
+
+The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. For a self-hosted deployment it belongs only in deployment-input.json and the 0600 environment file that scripts/prepare-deployment.py writes on my server — never in the Compose file, the UI, the repository, or anything you show me. Treat the merchant/store identifiers as sensitive too.
+
+This matters even if you do have shell access to my server: the key-entry step is the one step you must not run for me, because a key you type reaches my server through this conversation. Prepare deployment-input.json with everything except merchantApiKey, then hand me the "read -rsp" block from the Deploy section of deployment/SELF_HOSTING.md, wait for me to run it in my own session, and continue from there. Do not read back, echo, or summarise the contents of deployment-input.json or anything under .generated/ afterwards.
+
+Use the selected environment exactly; do not accept a free-form replacement for BIZ_APP_BASE_URL. Let the generator mint the database credentials, the Keycloak bootstrap administrator password, and ESTORE_CLIENT_SECRET — do not invent secrets in this conversation, because anything you type here ends up in the transcript. Keep Keycloak brute-force protection disabled for this kit version.
+
+Deploy in the order the runbook gives: verify DNS and ports; clone; write deployment-input.json; run scripts/prepare-deployment.py; run deployment/compose/deploy.sh; watch the edge logs until the certificate is issued. Only the edge may be public: confirm with me that nothing answers from outside on ports 5432, 5000, 8080, or 9000.
+
+When it is up, give me the results of scripts/public-smoke-test.py --store-url https://${domain}, and verify the storefront renders the live ${environment} catalogue, registration and login work, the browser shows a valid certificate for ${domain}, and no credential appears in the served browser bundle. Report what passed, what failed, and what you could not test.
+
+Finish by setting me up to keep it running: the backup command from deployment/compose/backup-keycloak-db.sh and a schedule for it, how to restore, how to update the stack, where the generated secrets live and how to rotate them, and the warning that re-running the generator mints a new KEYCLOAK_DB_PASSWORD which will break Keycloak against an existing keycloak-postgres-data volume. Never print raw secret values.`;
+  }
+
   function deployPrompt() {
     const environment = $('environment').value;
     const platform = $('platform').value;
     if (isLocalPlatform(platform)) return localPreviewPrompt(environment);
+    if (isSelfHostPlatform(platform)) return selfHostPrompt(environment);
     const domain = value('domain') || '[store hostname required]';
     const region = value('region') || '[nearest supported region]';
     const merchantId = value('merchant-id') || '[merchant identifier required]';
     const storeId = value('store-id') || '[store identifier required]';
     const dnsMode = $('dns-mode').value;
     const uiMode = $('ui-mode').value;
-    const uiDetails = value('ui-source') || (uiMode === 'bundled' ? 'Use source/merchant-store from the kit.' : '[I will provide the customized UI source separately.]');
+    const uiDetails = value('ui-source') || (uiMode === 'git' ? '[Customized UI repository URL, branch, source root, and Dockerfile path required.]' : '[I will attach the customized UI package to this conversation.]');
     const bizUrl = BIZ_APP_URLS[environment];
     return `Deploy a complete Ping Business merchant store on ${PLATFORM_NAMES[platform]}.
 
@@ -254,7 +336,7 @@ Authoritative public source:
 - Kit page: ${KIT_TREE_URL}
 - Agent instructions: ${AGENT_ENTRYPOINT_URL}
 
-Clone the repository root; do not attempt to clone the GitHub tree URL. Pin the exact commit deployed. Read AGENTS.md, deployment/DEPLOY_AGENT.md, prompts/DEPLOY_PROMPT.md, deployment/deployment-input.schema.json, and deployment/${platform} under the kit root.
+Clone the repository root; do not attempt to clone the GitHub tree URL. Pin the exact commit deployed. Read AGENTS.md, deployment/DEPLOY_AGENT.md, prompts/DEPLOY_PROMPT.md, deployment/deployment-input.schema.json, and deployment/${KIT_PLATFORM[platform]} under the kit root.
 
 Deployment inputs:
 - Platform: ${PLATFORM_NAMES[platform]}
@@ -267,6 +349,12 @@ Deployment inputs:
 - DNS mode: ${dnsMode} (${optionLabel('dns-mode')})
 - UI mode: ${uiMode} (${optionLabel('ui-mode')})
 - UI details: ${uiDetails}
+
+Deploy my customized UI, never the kit's own storefront. source/merchant-store in the kit is a reference implementation that exists to be customized; it carries demonstration branding and must not be put in front of my customers. uiSource.mode has no value that builds it, and scripts/prepare-deployment.py rejects an input that points back at it. ${PLATFORM_NAMES[platform]} builds from Git, so uiSource.mode must be "git" and must name my customized repository. If all I have is a ZIP, stop and tell me to push it to a repository first — do not fall back to the kit's UI to get past this.
+
+Before collecting anything else, tell me plainly which of these you can actually do in this session: retrieve this kit, run python3, run shell commands, and call the ${PLATFORM_NAMES[platform]} API or use a ${PLATFORM_NAMES[platform]} integration. If you cannot do some of them — many chat-only assistants cannot do any — say so now rather than describing a deployment you did not perform. In that case, act as my guide instead: give me exact copy-pasteable commands and exact ${PLATFORM_NAMES[platform]} console steps one at a time, wait for me to paste the output back, and continue from there. I have git and python3 available on my own machine, so I can run the kit's scripts for you. Never report a step as done that you did not see output for.
+
+${CANNOT_FETCH_KIT}
 
 The merchant API key is deliberately not in this prompt. Do not ask me to paste it into chat, a URL, source code, generated markdown, screenshots, or logs. Request PINGBIZ_MERCHANT_API_KEY only when you are ready to place it directly into ${PLATFORM_NAMES[platform]}'s protected secret mechanism through an authorized masked input or credential workflow. Treat the merchant/store identifiers as sensitive deployment inputs as well.
 
@@ -297,19 +385,24 @@ Before reporting success, run the kit validator, platform checks, public smoke t
       const missing = missingDeployFields();
       if (missing.length) setStatus($('deploy-status'), `Prompt is incomplete — add the ${missing.join(', ')} before sending it to an agent.`, true);
       else if (isLocalPlatform($('platform').value)) setStatus($('deploy-status'), 'Local preview prompt generated. It runs on your machine and still uses the real Ping Business backend, so the merchant API key stays out of this page.');
+      else if (isSelfHostPlatform($('platform').value)) setStatus($('deploy-status'), 'Self-hosting prompt generated. Have your server, its DNS record, and ports 80/443 ready — the agent will check those first. The merchant API key stays out of this page.');
       else setStatus($('deploy-status'), 'Deployment prompt generated without the merchant API key.');
     }
   }
 
   // A local preview has no public hostname, no region, and no DNS to configure.
-  // Disable those inputs rather than leaving a merchant to guess what applies.
+  // A self-hosted deployment has all of those except a region, because the
+  // merchant already picked the machine. Disable what does not apply rather than
+  // leaving a merchant to guess.
   function applyLocalPlatformState() {
-    const local = isLocalPlatform($('platform').value);
-    [['domain','shop.example.com'], ['region','Canada Central or nearest available region']].forEach(([id, placeholder]) => {
-      const field = $(id);
-      field.disabled = local;
-      field.placeholder = local ? 'not used for a local preview' : placeholder;
-    });
+    const platform = $('platform').value;
+    const local = isLocalPlatform(platform);
+    const selfHost = isSelfHostPlatform(platform);
+    const unused = local ? 'not used for a local preview' : 'not used when you supply the server';
+    $('domain').disabled = local;
+    $('domain').placeholder = local ? unused : 'shop.example.com';
+    $('region').disabled = local || selfHost;
+    $('region').placeholder = (local || selfHost) ? unused : 'Canada Central or nearest available region';
     $('dns-mode').disabled = local;
   }
 

@@ -12,7 +12,13 @@ Do not request infrastructure credentials during design.
 
 ## Process
 
-1. Read `AGENTS.md`, the API spec, UI reference architecture, and complete UI source.
+1. Read `AGENTS.md`, the API spec, UI reference architecture, and complete UI
+   source. If you cannot retrieve the kit in this session, say so before step 2
+   and ask the merchant to attach the release archive named in
+   `kit-metadata.json`, or the specific files you need. Customizing a remembered
+   Angular application rather than this one produces a package that looks
+   finished and fails the runtime-config, trust-boundary, and checkout contracts
+   the deployment later depends on.
 2. Inventory assets using `ASSET_MANIFEST.md`.
 3. State a concise design direction and map assets to destinations.
 4. Customize the existing Angular application unless another client technology is explicitly required.
@@ -40,9 +46,9 @@ docker run --rm -e ESTORE_APP_PUBLIC_URL=/api -p 8080:80 merchant-store-custom
 
 It must listen on port 80, answer `/healthz`, retain runtime config, and require
 no compile-time store hostname. A customized repository must be suitable for an
-agent to pass directly to Qovery or Northflank.
+agent to pass directly to Railway or Northflank.
 
-It must also keep an image-level `HEALTHCHECK`. Compose and Coolify gate the edge
+It must also keep an image-level `HEALTHCHECK`. Compose gates the edge
 on `condition: service_healthy` for `merchant-store`, and that condition is
 satisfied only by the image's own healthcheck. A customized Dockerfile that drops
 it passes every design check and then fails at `compose up` with

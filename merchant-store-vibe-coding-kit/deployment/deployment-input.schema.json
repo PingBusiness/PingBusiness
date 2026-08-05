@@ -27,10 +27,8 @@
       "type": "string",
       "enum": [
         "compose",
-        "qovery",
         "northflank",
-        "railway",
-        "coolify"
+        "railway"
       ]
     },
     "pingbusinessEnvironment": {
@@ -107,9 +105,7 @@
     "uiSource": {
       "type": "object",
       "additionalProperties": false,
-      "default": {
-        "mode": "bundled"
-      },
+      "description": "The merchant-supplied storefront UI. The kit's own source/merchant-store tree is a reference implementation to customize, not a deployable storefront, so there is no mode that deploys it.",
       "required": [
         "mode"
       ],
@@ -117,9 +113,10 @@
         "mode": {
           "type": "string",
           "enum": [
-            "bundled",
-            "git"
-          ]
+            "git",
+            "local"
+          ],
+          "description": "'git' builds the customized UI from a repository and is the only mode a managed platform can use. 'local' builds a customized UI tree already present on the target machine and is compose-only."
         },
         "repositoryUrl": {
           "type": "string",
@@ -134,13 +131,14 @@
           "type": "string",
           "default": "/"
         },
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Absolute path to the customized UI tree on the machine running Compose. Required when mode is 'local'."
+        },
         "dockerfilePath": {
           "type": "string",
           "default": "Dockerfile"
-        },
-        "qoveryGitTokenId": {
-          "type": "string",
-          "description": "Optional Qovery git-token resource ID for a private customized-UI repository."
         }
       },
       "allOf": [
@@ -155,6 +153,20 @@
           "then": {
             "required": [
               "repositoryUrl"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "local"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "path"
             ]
           }
         }
@@ -221,10 +233,6 @@
           "minimum": 10,
           "default": 20
         },
-        "instanceType": {
-          "type": "string",
-          "description": "Required by Qovery when mode is MANAGED; cloud-provider specific."
-        },
         "containerCpuMillicores": {
           "type": "integer",
           "minimum": 250,
@@ -275,25 +283,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "qovery": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "organizationId": {
-              "type": "string"
-            },
-            "clusterId": {
-              "type": "string"
-            },
-            "projectName": {
-              "type": "string"
-            },
-            "environmentName": {
-              "type": "string",
-              "default": "production"
-            }
-          }
-        },
         "northflank": {
           "type": "object",
           "additionalProperties": false,
@@ -355,32 +344,6 @@
             "postgresServiceName": {
               "type": "string",
               "default": "postgres"
-            }
-          }
-        },
-        "coolify": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "projectUuid": {
-              "type": "string"
-            },
-            "serverUuid": {
-              "type": "string"
-            },
-            "environmentName": {
-              "type": "string",
-              "default": "production"
-            },
-            "destinationUuid": {
-              "type": "string"
-            },
-            "applicationName": {
-              "type": "string"
-            },
-            "instantDeploy": {
-              "type": "boolean",
-              "default": false
             }
           }
         }

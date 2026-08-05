@@ -4,11 +4,10 @@ Use `scripts/prepare-deployment.py` to validate merchant inputs and generate pla
 
 Supported platforms:
 
-- `compose`
-- `qovery`
+- `compose` — the merchant's own server (`deployment/SELF_HOSTING.md`), or a
+  local preview with `--local`
 - `northflank`
 - `railway`
-- `coolify`
 
 Merchant-facing input must ask for `pingbusinessEnvironment` with only these choices:
 

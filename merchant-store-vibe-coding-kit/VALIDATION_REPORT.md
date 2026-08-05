@@ -17,8 +17,8 @@ Additional release checks completed successfully:
 - Apache-2.0 root and component-local license/notice integrity;
 - canonical repository, branch, kit-root, raw-agent, and release metadata;
 - JSON parsing and JSON Schema validation for deployment inputs;
-- deployment-input generation for Compose, Railway, Coolify, Northflank, and
-  Qovery using non-production dummy data;
+- deployment-input generation for Compose, Railway, and Northflank using
+  non-production dummy data;
 - deterministic staging `BIZ_APP_BASE_URL` generation;
 - mode `0600` on generated secret-bearing files;
 - confirmation that generated credentials were not printed in command output;
@@ -55,6 +55,6 @@ Additional release checks completed successfully:
 This release candidate has not yet claimed successful live deployment on every
 third-party platform. Before a stable `1.0.0` release, complete the live gates
 in `RELEASE_CHECKLIST.md`, including networked Angular and container builds,
-real staging authentication/checkout tests, Railway/Coolify/Qovery/Northflank
+real staging authentication/checkout tests, Railway/Northflank
 deployments, DNS/TLS verification, private-port verification, and a tested
 Keycloak PostgreSQL restore.

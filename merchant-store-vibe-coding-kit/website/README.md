@@ -8,8 +8,9 @@ It supports two merchant workflows:
 1. generate a design prompt, then attach brand assets to a trusted coding agent
    and download the customized UI source package;
 2. generate a deployment prompt, then attach that customized UI package (or
-   use the bundled UI) and let an authorized agent deploy through Railway,
-   Coolify, Qovery, or Northflank.
+   repository) and let an authorized agent deploy through Railway, Northflank, or
+   the merchant's own server. Step 1 is not optional: the kit's own storefront is
+   a reference implementation and is never deployed.
 
 The page has no backend and does not submit form values anywhere. It deliberately
 contains no merchant-API-key field. The deployment agent must request

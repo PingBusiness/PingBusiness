@@ -31,7 +31,7 @@ this kit and returns a complete buildable customized UI package or repository.
 
 ### 2. Deploy the store
 
-Open the **Deploy store** tab, choose Railway, Coolify, Qovery, or Northflank,
+Open the **Deploy store** tab, choose Railway, Northflank, or your own server,
 select staging or production, and provide the store domain and Ping Business
 merchant/store identifiers. The generated prompt deliberately excludes the
 merchant API key. The deployment agent requests that key only when it can place
@@ -69,11 +69,10 @@ database credentials, or central Ping Business authentication headers.
 
 | Target | Adapter |
 | --- | --- |
-| Docker Compose | `deployment/compose/` |
 | Railway | `deployment/railway/` |
-| Coolify | `deployment/coolify/` |
-| Qovery | `deployment/qovery/` |
 | Northflank | `deployment/northflank/` |
+| Merchant's own server or VPS | `deployment/compose/`, per `deployment/SELF_HOSTING.md` |
+| Local preview | `deployment/compose/` with `--local` |
 
 All managed-platform adapters clone `https://github.com/PingBusiness/PingBusiness` at branch `main` and
 use `/merchant-store-vibe-coding-kit` as the source root for bundled services.
@@ -86,7 +85,7 @@ use `/merchant-store-vibe-coding-kit` as the source root for bundled services.
 | `website/pingbusiness-store-launcher.html` | Static design/deployment prompt generator. |
 | `design/` and `prompts/DESIGN_PROMPT.md` | UI customization workflow and constraints. |
 | `deployment/` and `prompts/DEPLOY_PROMPT.md` | Deployment schemas, adapters, prompts, and tests. |
-| `source/merchant-store/` | Canonical merchant UI with runtime `/api` configuration. |
+| `source/merchant-store/` | Reference merchant UI with runtime `/api` configuration. Customization starts here; deployments build your customized copy, never this tree. |
 | `source/estore-app/` | Canonical merchant-hosted Flask backend. |
 | `keycloak/` | Portable ESTORE realm and idempotent provisioning utilities. |
 | `github/merchant-store-vibe-kit-validate.yml` | Monorepo-aware CI workflow copied to repository-root `.github/workflows/`. |

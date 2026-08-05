@@ -17,7 +17,11 @@
     "rootPath": "/merchant-store-vibe-coding-kit"
   },
   "uiSource": {
-    "mode": "bundled"
+    "mode": "git",
+    "repositoryUrl": "https://github.com/example-merchant/example-store-ui",
+    "branch": "main",
+    "rootPath": "/",
+    "dockerfilePath": "Dockerfile"
   },
   "keycloak": {
     "realm": "ESTORE",
@@ -37,10 +41,6 @@
   "platformParameters": {
     "railway": {
       "projectName": "example-store",
-      "environmentName": "production"
-    },
-    "coolify": {
-      "applicationName": "example-store",
       "environmentName": "production"
     }
   }
