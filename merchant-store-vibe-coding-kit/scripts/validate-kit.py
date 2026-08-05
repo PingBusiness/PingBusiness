@@ -297,6 +297,57 @@ def validate_northflank() -> None:
     ]:
         if fragment not in rendered:
             fail(f"Northflank adapter missing required contract: {fragment}")
+
+    # Keycloak build-time options must not be supplied at runtime. The image is
+    # built with `kc build` and started with `start --optimized`, so a build-time
+    # option that was not baked in (e.g. http-management-relative-path) makes
+    # Keycloak 26 exit with code 2 on every boot. The management interface already
+    # serves /health/* at its default relative path.
+    if '"KC_HTTP_MANAGEMENT_RELATIVE_PATH"' in rendered:
+        fail(
+            "Northflank template sets Keycloak build-time option "
+            "KC_HTTP_MANAGEMENT_RELATIVE_PATH at runtime; under `start --optimized` this makes "
+            "Keycloak exit 2 on boot. Remove it (the default management path already serves the "
+            "/health probes) or bake it into keycloak/Dockerfile's `kc build`."
+        )
+
+    # Every Build action node must pin an explicit branch/sha. A Build node with
+    # only {id, type} is accepted by this static check historically, yet a real
+    # `northflank run template` rejects it with HTTP 400 "Must provide either
+    # sha, branch or pullRequestId" and rolls the whole run back. Assert the ref
+    # is present so that class of runtime failure cannot ship again.
+    build_nodes: list[dict] = []
+
+    def collect_builds(value) -> None:
+        if isinstance(value, dict):
+            if value.get("kind") == "Build":
+                build_nodes.append(value)
+            for item in value.values():
+                collect_builds(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect_builds(item)
+
+    collect_builds(template.get("spec", {}))
+    if len(build_nodes) != 5:
+        fail(f"Northflank template must contain exactly 5 Build action nodes; found {len(build_nodes)}")
+    for node in build_nodes:
+        spec = node.get("spec", {})
+        spec = spec if isinstance(spec, dict) else {}
+        node_id = spec.get("id") if isinstance(spec.get("id"), str) else ""
+        branch = spec.get("branch") if isinstance(spec.get("branch"), str) else ""
+        sha = spec.get("sha") if isinstance(spec.get("sha"), str) else ""
+        if not branch.strip() and not sha.strip():
+            fail(
+                f"Northflank Build node ({node_id or 'unknown id'}) specifies neither branch nor sha; "
+                "`northflank run template` fails it with HTTP 400 'Must provide either sha, branch or "
+                "pullRequestId' and rolls back the run"
+            )
+            continue
+        expected = "UI_REPOSITORY_BRANCH" if "merchantStore" in node_id else "KIT_REPOSITORY_BRANCH"
+        if expected not in branch:
+            fail(f"Northflank Build node ({node_id or 'unknown id'}) must build ${{args.{expected}}}")
+    ok("every Northflank Build node pins an explicit branch/sha so a template run cannot 400")
     ok("Northflank template is sequential, secret-override driven, and exposes one edge")
 
 

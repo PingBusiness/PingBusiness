@@ -8,8 +8,10 @@
     "REGION": "europe-west",
     "KIT_REPOSITORY_URL": "https://github.com/PingBusiness/PingBusiness",
     "KIT_REPOSITORY_BRANCH": "main",
+    "KIT_REPOSITORY_SHA": "",
     "UI_REPOSITORY_URL": "__REQUIRED_CUSTOMIZED_UI_OVERRIDE__",
     "UI_REPOSITORY_BRANCH": "main",
+    "UI_REPOSITORY_SHA": "",
     "UI_DOCKER_WORK_DIR": "__REQUIRED_CUSTOMIZED_UI_OVERRIDE__",
     "UI_DOCKERFILE_PATH": "__REQUIRED_CUSTOMIZED_UI_OVERRIDE__",
     "STORE_DOMAIN": "shop.example.com",
@@ -158,7 +160,6 @@
                     "variables": {
                       "KC_DB": "postgres",
                       "KC_HTTP_ENABLED": "true",
-                      "KC_HTTP_MANAGEMENT_RELATIVE_PATH": "/",
                       "KC_PROXY_HEADERS": "xforwarded",
                       "KC_HOSTNAME": "https://${args.STORE_DOMAIN}/auth",
                       "KC_HOSTNAME_BACKCHANNEL_DYNAMIC": "true",
@@ -339,7 +340,9 @@
                 "condition": "success",
                 "spec": {
                   "id": "${refs.keycloak.id}",
-                  "type": "service"
+                  "type": "service",
+                  "branch": "${args.KIT_REPOSITORY_BRANCH}",
+                  "sha": "${fn.if(fn.neq(args.KIT_REPOSITORY_SHA, ''), args.KIT_REPOSITORY_SHA)}"
                 }
               },
               {
@@ -444,7 +447,9 @@
                 "condition": "success",
                 "spec": {
                   "id": "${refs.bootstrapJob.id}",
-                  "type": "job"
+                  "type": "job",
+                  "branch": "${args.KIT_REPOSITORY_BRANCH}",
+                  "sha": "${fn.if(fn.neq(args.KIT_REPOSITORY_SHA, ''), args.KIT_REPOSITORY_SHA)}"
                 }
               },
               {
@@ -590,7 +595,9 @@
                 "condition": "success",
                 "spec": {
                   "id": "${refs.estoreApp.id}",
-                  "type": "service"
+                  "type": "service",
+                  "branch": "${args.KIT_REPOSITORY_BRANCH}",
+                  "sha": "${fn.if(fn.neq(args.KIT_REPOSITORY_SHA, ''), args.KIT_REPOSITORY_SHA)}"
                 }
               },
               {
@@ -717,7 +724,9 @@
                 "condition": "success",
                 "spec": {
                   "id": "${refs.merchantStore.id}",
-                  "type": "service"
+                  "type": "service",
+                  "branch": "${args.UI_REPOSITORY_BRANCH}",
+                  "sha": "${fn.if(fn.neq(args.UI_REPOSITORY_SHA, ''), args.UI_REPOSITORY_SHA)}"
                 }
               },
               {
@@ -828,7 +837,9 @@
                 "condition": "success",
                 "spec": {
                   "id": "${refs.edge.id}",
-                  "type": "service"
+                  "type": "service",
+                  "branch": "${args.KIT_REPOSITORY_BRANCH}",
+                  "sha": "${fn.if(fn.neq(args.KIT_REPOSITORY_SHA, ''), args.KIT_REPOSITORY_SHA)}"
                 }
               },
               {
