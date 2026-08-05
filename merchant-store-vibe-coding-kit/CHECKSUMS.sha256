@@ -80,7 +80,7 @@ b2d6b62eaf0608206c4abc58a0a9dff9e1ca110cb1b3f247d176e5adc35054bd  ./scripts/prep
 ea92c8fadbfdf127d7b0cc13314dc01904964b171f91c88ca0e2c37892aae936  ./scripts/public-smoke-test.py
 f3069e66ffdc23a298abcae97bd1e13865bb81403f130467993e70015ae5a0e8  ./scripts/scan-frontend-secrets.py
 1d192a3ba20e623b41c2749c2353063cbd4c4c9a5ce76023692c06484f03e237  ./scripts/test-ui-runtime-config.sh
-b58e47bc71b74cd13165fba37ddcaa32e48aeaeee91f8e10f56fd3364c411d10  ./scripts/validate-kit.py
+2b2f89a7ff5dfdd31d947b774de3c1a19b1fa85cfcd142894d1e14ddd504d7cc  ./scripts/validate-kit.py
 d2f67325e86ec565a465ee3d94329fd22f76995fac671384752fb0bed34667a2  ./scripts/validate.sh
 68ac115a8067d4985f501c0f2d43b5d13fdfecbb566afc8b7d5a74626654ce06  ./source/estore-app/.dockerignore
 47a23ec3a741f47e3857f544441cdde89608645a6c10d7d83f609bbc39ce3382  ./source/estore-app/01-build.sh
@@ -217,4 +217,4 @@ f4abee69580f9dccbf9f9434365c6106a59fa8006a43c6292b0ccd868723db02  ./source/merch
 ffbc91963a2ac963568f8bd16741d5059f0af5a9a4e3dab1c28d1749e99a98cf  ./source/merchant-store/tsconfig.json
 bd5dfc878de6de9ac196ee169bf7b6652621e9e575bd96b2307eb3794f0f4dc3  ./source/merchant-store/tsconfig.spec.json
 897f72db8864e9e1fe1c03465fa4c1cd6c840743b2125c09c4ba79ba8284f2cc  ./website/README.md
-ee9f855b990a74e72db65d9bf5b1d3d52c65f54ab5603f356b4f8f5903c7213f  ./website/pingbusiness-store-launcher.html
+ebd4361ab6543446d761e81488a757e86b95e8964d56dda908c3b28d0a5e7e14  ./website/pingbusiness-store-launcher.html

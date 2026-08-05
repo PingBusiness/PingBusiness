@@ -346,6 +346,10 @@ def validate_website() -> None:
     # a merchant can actually download.
     if PUBLIC_RELEASE_ASSET_URL not in html:
         fail("prompt generator must name the downloadable release archive")
+    # The prompt tells the agent to ask for the archive; the page has to give the
+    # merchant a way to get it without digging through the prompt they just copied.
+    if f'id="download-kit" href="{PUBLIC_RELEASE_ASSET_URL}"' not in html:
+        fail("launcher must offer a one-click kit download for merchants whose agent cannot fetch it")
     for fragment in ["cannot retrieve the kit", "Do not reconstruct the kit from memory"]:
         if fragment not in html:
             fail(f"prompt generator is missing the no-kit-access fallback: {fragment}")
