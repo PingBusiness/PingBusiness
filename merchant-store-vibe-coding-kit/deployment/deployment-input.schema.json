@@ -135,7 +135,7 @@
         "sha": {
           "type": "string",
           "pattern": "^[0-9a-fA-F]{7,40}$",
-          "description": "Optional exact commit SHA to pin the customized-UI build (git mode). Ignored for bundled UI, which inherits the kit commit."
+          "description": "Optional exact commit SHA to pin the customized-UI build. Applies to git mode only; a local path is a directory rather than a checkout and has no commit to pin."
         },
         "rootPath": {
           "type": "string",

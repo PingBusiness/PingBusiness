@@ -153,10 +153,14 @@ def validate_ui_source_is_merchant_supplied(schema: dict, script: str) -> None:
     for guard in ["uiSource.path is the kit's own source/merchant-store tree", "uiSource points at the kit's own source/merchant-store tree"]:
         if guard not in script:
             fail(f"deployment generator is missing a kit-UI rejection guard: {guard}")
-    northflank = json.loads(text("deployment/northflank/template.json")).get("arguments", {})
-    for key in ["UI_REPOSITORY_URL", "UI_DOCKER_WORK_DIR", "UI_DOCKERFILE_PATH"]:
-        if PUBLIC_KIT_ROOT_PATH in str(northflank.get(key, "")) or northflank.get(key) == PUBLIC_REPOSITORY_URL:
-            fail(f"Northflank committed template still defaults {key} to the kit's own UI")
+    # Both files: the example is what an agent copies, so it regresses as easily
+    # as the template and is just as harmful when it points at the kit's own UI.
+    for northflank_file in ["deployment/northflank/template.json", "deployment/northflank/arguments.example.json"]:
+        loaded = json.loads(text(northflank_file))
+        arguments = loaded.get("arguments", loaded)
+        for key in ["UI_REPOSITORY_URL", "UI_DOCKER_WORK_DIR", "UI_DOCKERFILE_PATH"]:
+            if PUBLIC_KIT_ROOT_PATH in str(arguments.get(key, "")) or arguments.get(key) == PUBLIC_REPOSITORY_URL:
+                fail(f"{northflank_file} still defaults {key} to the kit's own UI")
     railway_ui = next((s for s in json.loads(text("deployment/railway/service-map.json")).get("services", []) if s.get("name") == "merchant-store"), {})
     if railway_ui.get("sourceRoot"):
         fail("Railway service map still builds merchant-store from a kit source root")
