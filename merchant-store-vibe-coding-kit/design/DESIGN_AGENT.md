@@ -54,11 +54,25 @@ satisfied only by the image's own healthcheck. A customized Dockerfile that drop
 it passes every design check and then fails at `compose up` with
 "has no healthcheck configured".
 
+## Design dev server
+
+If the session can run commands, run `npm ci` then `npm start` in the customized
+tree and give the merchant the URL the dev server prints — normally
+`http://localhost:4200`, but report the actual one, since Angular moves ports when
+4200 is busy. Leave it running across feedback rounds so the merchant refreshes
+instead of waiting for a repackaged ZIP.
+
+Say what it proves and what it does not, every time: no `estore-app` is running, so
+`APP_URL` falls back to `http://localhost:5000` and API calls fail. It shows layout,
+branding, typography, and responsive behaviour, and nothing about catalogue, login,
+or checkout. It binds `0.0.0.0`, so tunnel it on a shared or cloud machine.
+
 ## Local preview
 
 The merchant must be able to see the store running before committing to a
-deployment. A static build cannot exercise the live catalogue, Keycloak, or
-checkout, and nobody can approve a store they have never seen.
+deployment. Neither a static build nor the dev server above can exercise the live
+catalogue, Keycloak, or checkout, and nobody can approve a store they have never
+seen working.
 
 The preview needs a running `estore-app`, which needs the merchant identifier,
 store identifier, and merchant API key. Those are not part of the design brief and

@@ -50,7 +50,7 @@ e4f92b06e8c8264cc5b4f6d15bb3be5d4f30905899f175bc0dcd317fa4623454  ./deployment/n
 9a92bce279f6ef390c05edcda93e54b00fe8fbd90876424d856680bdcb393044  ./deployment/railway/variables.example.json
 7c30a4533065f985e14ebc21b9e0227272c2ff60c780d42ee1151936799fd110  ./design/ASSET_MANIFEST.md
 1f4588bc22fd23c8ffc6779933952c4d7c8dd14c0b8635d051c8e33a89f1f8aa  ./design/DESIGN_ACCEPTANCE_CHECKLIST.md
-98560ece8b809fa3871fdb5fc52f93a40bd4a07b6fc6d01c110ace9189b68994  ./design/DESIGN_AGENT.md
+e761e192f62e5de1fb313e0d2bec43b511792c11f0af70a443256dea137a8711  ./design/DESIGN_AGENT.md
 cfee9cdc397a0fa77aa37e6e0c380f07a643d7bc0d1823b2a2d5bfdc77a4975f  ./design/DESIGN_REPORT_TEMPLATE.md
 afd0daba8f9b3bffc494c6ef31d81979843f3544069baa126e3dbf3aa7b0b55f  ./design/MERCHANT_DESIGN_BRIEF.yaml
 1a1cf7448d5b6a79010c3148eb184f2f958d1c95da752395e733881ad8516e03  ./docs/ARCHITECTURE.md
@@ -75,12 +75,12 @@ c0ee2c01270411fcd5c8bf8e78d080237c4d1c61ae34d197c935d29cf50a8833  ./keycloak/rea
 36e233e7e7ea6f2fb7e99d14f7bff4af8564bd164b0cda888aa9520aafa0c661  ./kit-metadata.json
 db93650b6a5e82362ccbaa778203213a8ceacb3f278aef632ebc775358e2b3b5  ./llms.txt
 2b6199e92b70bd450c30dd80b493816dde2a37b4683338e7d4106ca043702b3c  ./prompts/DEPLOY_PROMPT.md
-526db42ebaadbafbee8c3b4c237ae42642c7e21dd1f40c6158bbe37786693ae1  ./prompts/DESIGN_PROMPT.md
+9703f0102157ebaa9127b55bbe87c53a56b9bfe3aa127601278c0fff1b0a8bd2  ./prompts/DESIGN_PROMPT.md
 b2d6b62eaf0608206c4abc58a0a9dff9e1ca110cb1b3f247d176e5adc35054bd  ./scripts/prepare-deployment.py
 ea92c8fadbfdf127d7b0cc13314dc01904964b171f91c88ca0e2c37892aae936  ./scripts/public-smoke-test.py
 f3069e66ffdc23a298abcae97bd1e13865bb81403f130467993e70015ae5a0e8  ./scripts/scan-frontend-secrets.py
 1d192a3ba20e623b41c2749c2353063cbd4c4c9a5ce76023692c06484f03e237  ./scripts/test-ui-runtime-config.sh
-2b2f89a7ff5dfdd31d947b774de3c1a19b1fa85cfcd142894d1e14ddd504d7cc  ./scripts/validate-kit.py
+60ac590e9ebf9c38dafa38f972106ea27cc24cd4f38e7767c7b2b0128b677b8e  ./scripts/validate-kit.py
 d2f67325e86ec565a465ee3d94329fd22f76995fac671384752fb0bed34667a2  ./scripts/validate.sh
 68ac115a8067d4985f501c0f2d43b5d13fdfecbb566afc8b7d5a74626654ce06  ./source/estore-app/.dockerignore
 47a23ec3a741f47e3857f544441cdde89608645a6c10d7d83f609bbc39ce3382  ./source/estore-app/01-build.sh
@@ -217,4 +217,4 @@ f4abee69580f9dccbf9f9434365c6106a59fa8006a43c6292b0ccd868723db02  ./source/merch
 ffbc91963a2ac963568f8bd16741d5059f0af5a9a4e3dab1c28d1749e99a98cf  ./source/merchant-store/tsconfig.json
 bd5dfc878de6de9ac196ee169bf7b6652621e9e575bd96b2307eb3794f0f4dc3  ./source/merchant-store/tsconfig.spec.json
 897f72db8864e9e1fe1c03465fa4c1cd6c840743b2125c09c4ba79ba8284f2cc  ./website/README.md
-ebd4361ab6543446d761e81488a757e86b95e8964d56dda908c3b28d0a5e7e14  ./website/pingbusiness-store-launcher.html
+af9a226d89daf6e4d7324426779a84275ee3fec024a3ec94b4f6da5941233660  ./website/pingbusiness-store-launcher.html

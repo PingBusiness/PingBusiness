@@ -341,6 +341,11 @@ def validate_website() -> None:
             fail(f"self-hosting prompt is missing a prerequisite: {fragment}")
     if "which of these you can actually do" not in html:
         fail("deployment prompt must make the agent declare its session capabilities")
+    # A capable agent should hand back a URL during design, and must say what that
+    # view cannot prove — an empty catalogue is the dev server, not a design bug.
+    for fragment in ["npm start", "http://localhost:4200", "http://localhost:5000"]:
+        if fragment not in html:
+            fail(f"design prompt is missing the dev-server instruction: {fragment}")
     # An assistant with no repository or web access must ask for the kit, not
     # improvise one. Every generated prompt carries the fallback and the archive
     # a merchant can actually download.

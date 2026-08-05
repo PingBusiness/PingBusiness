@@ -66,11 +66,40 @@ npm run build:prod
 python3 ../../scripts/scan-frontend-secrets.py .
 ```
 
+## Design dev server
+
+If your session can run commands, serve the customized UI as soon as it builds and
+give the merchant a URL. It costs nothing, needs no Docker, no kit, and no merchant
+credentials, and it turns the feedback loop from "package, hand off, wait" into
+"refresh the tab":
+
+```bash
+cd <customized merchant-store>
+npm ci
+npm start          # ng serve --host 0.0.0.0
+```
+
+Report the URL the dev server actually printed — normally `http://localhost:4200`,
+but Angular moves to another port when 4200 is taken, so do not assume it. Leave it
+running across feedback rounds.
+
+State its limits in the same breath, every time. There is no `estore-app` behind
+it, so `APP_URL` falls back to `http://localhost:5000` and every API call fails:
+the merchant sees layout, branding, typography, spacing, and responsive behaviour,
+and sees nothing about the catalogue, login, or checkout. A merchant who is not
+told this reads empty product lists as a design bug, or worse, as approval.
+
+The dev server binds `0.0.0.0`. On a shared or cloud machine, tunnel it rather than
+leaving it reachable.
+
+This never replaces the packaged preview below. It is a look, not an approval.
+
 ## Local preview
 
 Checks 2-8 below exercise the live catalogue, Keycloak and checkout. None of them
-can run against a static build, so bring the whole stack up on the merchant's own
-machine first and let the merchant look at the result before anything is deployed.
+can run against a static build or against the dev server above, so bring the whole
+stack up on the merchant's own machine and let the merchant look at the result
+before anything is deployed.
 
 The preview needs a running `estore-app`, which needs the merchant identifier, the
 store identifier, and the merchant API key. Those are deliberately not part of the
@@ -106,7 +135,7 @@ MERCHANT_STORE_BUILD_CONTEXT=/path/to/unzipped/merchant-store \
 python3 ../../scripts/public-smoke-test.py --store-url http://localhost
 ```
 
-`--local` is the only supported way to preview: it is compose-only, it accepts
+`--local` is the only supported way to preview the full stack: it is compose-only, it accepts
 `localhost` where a real deployment requires a public hostname, and it serves plain
 HTTP because a local name has no DNS and therefore no certificate. Never use it for
 a real store. Tear down with `docker compose -p <project> down -v`.
