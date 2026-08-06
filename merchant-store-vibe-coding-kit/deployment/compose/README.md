@@ -1,6 +1,10 @@
 # Docker Compose reference deployment
 
-This is the platform-neutral executable reference and a self-hosted fallback. It exposes only the `edge` service on ports 80/443. PostgreSQL, Keycloak, `estore-app`, and the UI remain on the private Compose network.
+This is the platform-neutral executable reference and the self-hosting target. It exposes only the `edge` service on ports 80/443. PostgreSQL, Keycloak, `estore-app`, and the UI remain on the private Compose network.
+
+To run a real store on your own server or VPS, follow `deployment/SELF_HOSTING.md`
+first — it covers the server, DNS, port, and certificate prerequisites that this
+file assumes are already in place.
 
 ## Prepare
 
@@ -61,7 +65,9 @@ Caddy serves one origin:
 
 ## Customized UI
 
-For a public Git repository, set `uiSource.mode` to `git`; the generated Compose environment uses Docker's Git build context. For a private repository, clone it locally and change `MERCHANT_STORE_BUILD_CONTEXT` in the private env file to the local directory.
+Every deployment builds a merchant-supplied UI. The kit's `source/merchant-store` tree is the reference implementation a customization starts from, not a deployable storefront, and the generator rejects an input that points back at it.
+
+For a public Git repository, set `uiSource.mode` to `git`; the generated Compose environment uses Docker's Git build context. For a private repository or a ZIP from a design agent, put the tree on the machine running Compose and use `uiSource.mode` `local` with an absolute `uiSource.path`; the generator writes it into `MERCHANT_STORE_BUILD_CONTEXT`.
 
 ## Backup and restore
 

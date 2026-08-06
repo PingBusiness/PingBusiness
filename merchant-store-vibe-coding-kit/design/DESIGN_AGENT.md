@@ -12,7 +12,13 @@ Do not request infrastructure credentials during design.
 
 ## Process
 
-1. Read `AGENTS.md`, the API spec, UI reference architecture, and complete UI source.
+1. Read `AGENTS.md`, the API spec, UI reference architecture, and complete UI
+   source. If you cannot retrieve the kit in this session, say so before step 2
+   and ask the merchant to attach the release archive named in
+   `kit-metadata.json`, or the specific files you need. Customizing a remembered
+   Angular application rather than this one produces a package that looks
+   finished and fails the runtime-config, trust-boundary, and checkout contracts
+   the deployment later depends on.
 2. Inventory assets using `ASSET_MANIFEST.md`.
 3. State a concise design direction and map assets to destinations.
 4. Customize the existing Angular application unless another client technology is explicitly required.
@@ -40,19 +46,33 @@ docker run --rm -e ESTORE_APP_PUBLIC_URL=/api -p 8080:80 merchant-store-custom
 
 It must listen on port 80, answer `/healthz`, retain runtime config, and require
 no compile-time store hostname. A customized repository must be suitable for an
-agent to pass directly to Qovery or Northflank.
+agent to pass directly to Railway or Northflank.
 
-It must also keep an image-level `HEALTHCHECK`. Compose and Coolify gate the edge
+It must also keep an image-level `HEALTHCHECK`. Compose gates the edge
 on `condition: service_healthy` for `merchant-store`, and that condition is
 satisfied only by the image's own healthcheck. A customized Dockerfile that drops
 it passes every design check and then fails at `compose up` with
 "has no healthcheck configured".
 
+## Design dev server
+
+If the session can run commands, run `npm ci` then `npm start` in the customized
+tree and give the merchant the URL the dev server prints — normally
+`http://localhost:4200`, but report the actual one, since Angular moves ports when
+4200 is busy. Leave it running across feedback rounds so the merchant refreshes
+instead of waiting for a repackaged ZIP.
+
+Say what it proves and what it does not, every time: no `estore-app` is running, so
+`APP_URL` falls back to `http://localhost:5000` and API calls fail. It shows layout,
+branding, typography, and responsive behaviour, and nothing about catalogue, login,
+or checkout. It binds `0.0.0.0`, so tunnel it on a shared or cloud machine.
+
 ## Local preview
 
 The merchant must be able to see the store running before committing to a
-deployment. A static build cannot exercise the live catalogue, Keycloak, or
-checkout, and nobody can approve a store they have never seen.
+deployment. Neither a static build nor the dev server above can exercise the live
+catalogue, Keycloak, or checkout, and nobody can approve a store they have never
+seen working.
 
 The preview needs a running `estore-app`, which needs the merchant identifier,
 store identifier, and merchant API key. Those are not part of the design brief and

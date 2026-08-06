@@ -16,7 +16,7 @@ The workflow creates resources sequentially:
 2. private Keycloak service;
 3. idempotent ESTORE realm/client bootstrap and verification job;
 4. private `estore-app` service;
-5. private default or customized merchant-store UI;
+5. private merchant-supplied customized merchant-store UI;
 6. one public edge service linked to the merchant hostname.
 
 Every service and the bootstrap job is followed by an explicit `Build` action
@@ -118,12 +118,22 @@ record for manual creation.
 
 ## Customized UI
 
-The default UI uses the public kit repository and:
+There is no default UI. The kit's `source/merchant-store` tree is a reference
+implementation carrying demonstration branding; it is what a customization starts
+from, never what customers see. The three `UI_*` arguments ship as
+`__REQUIRED_CUSTOMIZED_UI_OVERRIDE__` and must be overridden with the merchant's
+customized repository:
 
 ```text
-UI_DOCKER_WORK_DIR=/merchant-store-vibe-coding-kit/source/merchant-store
-UI_DOCKERFILE_PATH=/merchant-store-vibe-coding-kit/source/merchant-store/Dockerfile
+UI_REPOSITORY_URL=https://github.com/<merchant>/<customized-ui>
+UI_DOCKER_WORK_DIR=/
+UI_DOCKERFILE_PATH=/Dockerfile
 ```
+
+Northflank builds from Git, so a merchant holding only a customized ZIP must
+publish it to a repository first. `scripts/prepare-deployment.py` writes these
+values from `uiSource` and rejects an input that points back at the kit's own
+tree.
 
 A customized UI repository must retain the runtime container contract:
 

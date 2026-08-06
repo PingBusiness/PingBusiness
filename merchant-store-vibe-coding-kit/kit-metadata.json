@@ -17,8 +17,6 @@
   "supportedPlatforms": [
     "compose",
     "railway",
-    "coolify",
-    "qovery",
     "northflank"
   ],
   "pingBusinessEnvironments": {

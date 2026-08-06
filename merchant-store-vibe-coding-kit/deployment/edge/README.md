@@ -8,7 +8,7 @@ The edge is the only public application service. It exposes one merchant host:
 
 PostgreSQL, Keycloak ports `8080`/`9000`, `estore-app:5000`, and the UI container are never published directly.
 
-`Caddyfile.compose` terminates TLS itself. `Caddyfile.platform` listens on HTTP port `8080` because Qovery or Northflank terminates and manages TLS.
+`Caddyfile.compose` terminates TLS itself. `Caddyfile.platform` listens on HTTP port `8080` because Northflank or Railway terminates and manages TLS.
 
 ## Product image caching
 
@@ -48,8 +48,8 @@ in two places that the header above enables for free:
 
 1. **The visitor's browser** — repeat views cost no request at all. This is the
    largest single win and needs nothing beyond the header.
-2. **The platform CDN** — Railway, Qovery, Northflank, and a Coolify proxy all
-   honour `Cache-Control` and will serve shared hits from their edge.
+2. **The platform CDN** — Railway and Northflank both honour `Cache-Control`
+   and will serve shared hits from their edge.
 
 If a self-hosted shared cache is genuinely required (for example Compose with no
 CDN in front), Caddy must be rebuilt with a cache module rather than

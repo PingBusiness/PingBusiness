@@ -88,8 +88,9 @@
     {
       "name": "merchant-store",
       "type": "docker",
-      "sourceRoot": "/merchant-store-vibe-coding-kit/source/merchant-store",
       "dockerfilePath": "Dockerfile",
+      "source": "merchant-customized-ui",
+      "sourceNote": "Built from the merchant's customized UI repository named by uiSource in the deployment input, never from this kit. The kit's source/merchant-store tree is a reference implementation to customize, not a deployable storefront.",
       "public": false,
       "variables": [
         "ESTORE_APP_PUBLIC_URL"

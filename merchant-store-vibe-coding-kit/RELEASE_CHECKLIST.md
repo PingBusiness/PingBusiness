@@ -9,7 +9,7 @@
 - [x] Update the static launcher to use `https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit`.
 - [x] Keep the merchant API key out of the static HTML and generated AI prompts.
 - [x] Derive `BIZ_APP_BASE_URL` from staging/production selection.
-- [x] Add Compose, Railway, Coolify, Qovery, and Northflank adapters.
+- [x] Add Compose, Railway, and Northflank adapters.
 - [x] Add a monorepo-aware GitHub Actions workflow.
 - [x] Add machine-readable `kit-metadata.json`.
 - [x] Include Apache-2.0 license and notice copies in standalone UI/backend source directories.
@@ -24,8 +24,8 @@
       inventory, ordinary checkout, subscription, order, and payment-read tests.
 - [ ] Restore a Keycloak PostgreSQL backup into a clean environment.
 - [ ] Publish and test a Railway project/template.
-- [ ] Publish and test a Coolify deployment on an authorized server.
-- [ ] Complete one real Qovery deployment and capture its launch URL.
+- [ ] Complete one real self-hosted deployment on an authorized server, including
+      certificate issuance and a tested backup.
 - [ ] Complete one real Northflank deployment and capture its shared-template URL.
 - [ ] Verify custom DNS and managed TLS on each advertised platform.
 - [ ] Verify PostgreSQL, Keycloak, `estore-app`, and the raw UI are not public.

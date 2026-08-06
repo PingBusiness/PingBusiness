@@ -23,9 +23,9 @@ REQUIRED_FILES = [
     "deployment/DEPLOY_AGENT.md", "prompts/DEPLOY_PROMPT.md",
     "deployment/deployment-input.schema.json", "deployment/deployment-output.schema.json",
     "deployment/compose/compose.yaml", "deployment/edge/routes.caddy",
-    "deployment/qovery/main.tf", "deployment/northflank/template.json",
+    "deployment/SELF_HOSTING.md",
+    "deployment/northflank/template.json",
     "deployment/railway/README.md", "deployment/railway/service-map.json", "deployment/railway/variables.example.json",
-    "deployment/coolify/README.md", "deployment/coolify/compose.yaml", "deployment/coolify/env.example",
     "docs/PLATFORM_SUPPORT.md", "website/pingbusiness-store-launcher.html", "website/README.md",
     "github/merchant-store-vibe-kit-validate.yml", "github/merchant-store-vibe-kit.instructions.md",
     "keycloak/Dockerfile", "keycloak/realm-bootstrap/bootstrap_realm.py",
@@ -114,7 +114,7 @@ def validate_input_schema() -> None:
     if "bizAppBaseUrl" in schema.get("properties", {}):
         fail("deployment input schema must not expose merchant-facing bizAppBaseUrl")
     platform_enum = set(schema.get("properties", {}).get("platform", {}).get("enum", []))
-    expected = {"compose", "qovery", "northflank", "railway", "coolify"}
+    expected = {"compose", "northflank", "railway"}
     if platform_enum != expected:
         fail(f"platform enum mismatch: {platform_enum}")
     env_enum = set(schema.get("properties", {}).get("pingbusinessEnvironment", {}).get("enum", []))
@@ -134,6 +134,84 @@ def validate_input_schema() -> None:
     if "BIZ_APP_BASE_URLS" not in script or "bizAppBaseUrl" in text("deployment/deployment-input.schema.json"):
         fail("deployment generator must derive BIZ_APP_BASE_URL internally")
     ok("deployment schema and generator use staging/production environment mapping")
+    validate_ui_source_is_merchant_supplied(schema, script)
+
+
+def validate_ui_source_is_merchant_supplied(schema: dict, script: str) -> None:
+    """The kit's own UI is a reference implementation, never a deployed storefront.
+
+    Nothing may offer it as a deployable option: not the schema, not the
+    generator, not the committed platform templates, not the launcher.
+    """
+    ui_mode = set(schema.get("properties", {}).get("uiSource", {}).get("properties", {}).get("mode", {}).get("enum", []))
+    if ui_mode != {"git", "local"}:
+        fail(f"uiSource.mode must be exactly git/local; found {sorted(ui_mode)}")
+    if "bundled" in text("deployment/deployment-input.schema.json"):
+        fail("deployment input schema still offers a bundled UI mode")
+    if "bundled" in script or '"../../source/merchant-store"' in script:
+        fail("deployment generator can still build the kit's own UI tree")
+    for guard in ["uiSource.path is the kit's own source/merchant-store tree", "uiSource points at the kit's own source/merchant-store tree"]:
+        if guard not in script:
+            fail(f"deployment generator is missing a kit-UI rejection guard: {guard}")
+    # Both files: the example is what an agent copies, so it regresses as easily
+    # as the template and is just as harmful when it points at the kit's own UI.
+    for northflank_file in ["deployment/northflank/template.json", "deployment/northflank/arguments.example.json"]:
+        loaded = json.loads(text(northflank_file))
+        arguments = loaded.get("arguments", loaded)
+        for key in ["UI_REPOSITORY_URL", "UI_DOCKER_WORK_DIR", "UI_DOCKERFILE_PATH"]:
+            if PUBLIC_KIT_ROOT_PATH in str(arguments.get(key, "")) or arguments.get(key) == PUBLIC_REPOSITORY_URL:
+                fail(f"{northflank_file} still defaults {key} to the kit's own UI")
+    railway_ui = next((s for s in json.loads(text("deployment/railway/service-map.json")).get("services", []) if s.get("name") == "merchant-store"), {})
+    if railway_ui.get("sourceRoot"):
+        fail("Railway service map still builds merchant-store from a kit source root")
+    html = text("website/pingbusiness-store-launcher.html")
+    if 'value="bundled"' in html:
+        fail("launcher still offers the kit's own UI as a deployable option")
+    ok("the kit's UI is a customization reference only and cannot be selected for deployment")
+
+
+def validate_callback_base_url() -> None:
+    """ESTORE_PUBLIC_BASE_URL is the store root, never the /api base.
+
+    `estore-app` builds PaymentAsia callbacks as
+    `{ESTORE_PUBLIC_BASE_URL}/checkout/return/<id>` and biz-app pins those by
+    exact path, so an `/api` suffix fails every create-intent with HTTP 400 and
+    no checkout can start. Every adapter got this wrong at once, so it is worth
+    a check of its own rather than one assertion per adapter.
+    """
+    offenders = []
+    # Capture to end of line, not to the first space: the Compose value contains
+    # spaces (`${STORE_DOMAIN:?STORE_DOMAIN is required}`) and a whitespace-
+    # terminated pattern silently skips the very file most likely to regress.
+    assignment = re.compile(r"""ESTORE_PUBLIC_BASE_URL["']?\s*[:=]\s*(.+)""")
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or any(part in {"node_modules", ".git", "__pycache__", ".generated"} for part in path.parts):
+            continue
+        if path.name in {"CHECKSUMS.sha256", "validate-kit.py"} or path.suffix.lower() not in {
+            ".md", ".json", ".yaml", ".yml", ".py", ".example", ".sh", ".caddy"
+        } and not path.name.endswith(".env.example"):
+            continue
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for value in assignment.findall(content):
+            value = value.strip().rstrip(",").strip("\"'").rstrip("/")
+            if value.endswith("/api"):
+                offenders.append(f"{path.relative_to(ROOT)} -> {value}")
+    if offenders:
+        fail("ESTORE_PUBLIC_BASE_URL must be the store root, not the /api base: " + ", ".join(offenders))
+        return
+    # The edge must carry the callback paths from the root, or the root-form
+    # value above has nowhere to land.
+    routes = text("deployment/edge/routes.caddy")
+    for callback_path in ["/checkout/return/*", "/checkout/notify/*", "/recurring/tokenization/notify/*", "/recurring/payment/notify"]:
+        if callback_path not in routes:
+            fail(f"edge does not route the PaymentAsia callback path {callback_path} from the root")
+    generator = text("scripts/prepare-deployment.py")
+    if '"ESTORE_PUBLIC_BASE_URL": store_url' not in generator:
+        fail("deployment generator must emit the store root for ESTORE_PUBLIC_BASE_URL")
+    ok("ESTORE_PUBLIC_BASE_URL is the store root and the edge routes callbacks from the root")
 
 
 def validate_realm() -> None:
@@ -207,7 +285,8 @@ def validate_compose() -> None:
     required = [
         # The scheme is templated so the local preview path can serve plain HTTP.
         # It still defaults to https, so a real deployment is unchanged.
-        "ESTORE_PUBLIC_BASE_URL: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}/api",
+        # Store root, no /api — see validate_callback_base_url below.
+        "ESTORE_PUBLIC_BASE_URL: ${PUBLIC_SCHEME:-https}://${STORE_DOMAIN:?STORE_DOMAIN is required}\n",
         "ESTORE_KC_SERVER_URL: http://keycloak:8080",
         "ESTORE_APP_PUBLIC_URL: /api",
         "condition: service_completed_successfully",
@@ -219,36 +298,6 @@ def validate_compose() -> None:
     if "KC_HTTP_RELATIVE_PATH" in raw:
         fail("Compose must not combine edge /auth prefix stripping with KC_HTTP_RELATIVE_PATH")
     ok("Compose enforces the agreed deployment order and exposes only the edge")
-
-
-def validate_qovery() -> None:
-    versions = text("deployment/qovery/versions.tf")
-    main = text("deployment/qovery/main.tf")
-    variables = text("deployment/qovery/variables.tf")
-    if 'source  = "qovery/qovery"' not in versions:
-        fail("Qovery provider source address must be qovery/qovery")
-    if 'version = "= 0.86.1"' not in versions:
-        fail("Qovery provider is not pinned to reviewed version 0.86.1")
-    if main.count("publicly_accessible = true") != 1:
-        fail("Qovery adapter must expose exactly one public port")
-    if 'variable "pingbusiness_environment"' not in variables:
-        fail("Qovery adapter must carry pingbusiness_environment metadata")
-    for fragment in [
-        'name           = "01-database"', 'name           = "02-identity"',
-        'name           = "03-realm-bootstrap"', 'name           = "04-backend"',
-        'name           = "05-frontend"', 'name           = "06-edge"',
-        'value = "${local.public_base_url}/api"',
-        'value = "${local.public_base_url}/auth"',
-        '{ key = "ESTORE_APP_PUBLIC_URL", value = "/api" }',
-        'generate_certificate = true',
-    ]:
-        if fragment not in main:
-            fail(f"Qovery adapter missing required contract: {fragment}")
-    if 'variable "kit_repository_root_path"' not in variables or '${local.kit_root_path}/keycloak' not in main:
-        fail("Qovery adapter is not monorepo-root aware")
-    if re.search(r'variable\s+"(?:api|auth)_domain"', variables):
-        fail("Qovery adapter contains obsolete multi-domain variables")
-    ok("Qovery adapter is single-host, staged, private-by-default, and certificate-enabled")
 
 
 def validate_northflank() -> None:
@@ -289,7 +338,7 @@ def validate_northflank() -> None:
             fail(f"Northflank adapter missing monorepo build path: {path_fragment}")
     for fragment in [
         '"ESTORE_APP_PUBLIC_URL": "/api"',
-        '"ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}/api"',
+        '"ESTORE_PUBLIC_BASE_URL": "https://${args.STORE_DOMAIN}"',
         '"KC_HOSTNAME": "https://${args.STORE_DOMAIN}/auth"',
         '"GUNICORN_WORKERS": "2"',
         '"GUNICORN_THREADS": "4"',
@@ -378,34 +427,41 @@ def validate_railway() -> None:
     ok("Railway adapter defines private services, one public edge, and service variables")
 
 
-def validate_coolify() -> None:
-    compose = yaml.safe_load(text("deployment/coolify/compose.yaml"))
-    services = compose.get("services", {})
-    expected = {"postgres", "keycloak", "keycloak-realm-bootstrap", "estore-app", "merchant-store", "edge"}
-    if set(services) != expected:
-        fail(f"Coolify service set mismatch: {sorted(services)}")
-    exposed_ports = [name for name, svc in services.items() if svc.get("ports")]
-    if exposed_ports:
-        fail("Coolify adapter must not map host ports directly: " + ", ".join(exposed_ports))
-    edge = services.get("edge", {})
-    env = edge.get("environment", {})
-    if "SERVICE_FQDN_EDGE_8080" not in env:
-        fail("Coolify edge must use SERVICE_FQDN_EDGE_8080 for proxy domain binding")
-    for private_name in ["postgres", "keycloak", "estore-app", "merchant-store"]:
-        if services.get(private_name, {}).get("ports") or "SERVICE_FQDN" in json.dumps(services.get(private_name, {})):
-            fail(f"Coolify private service is exposed: {private_name}")
-    if PUBLIC_KIT_ROOT_PATH + "/deployment/coolify/compose.yaml" not in text("deployment/coolify/README.md"):
-        fail("Coolify documentation does not identify the monorepo Compose path")
-    if "https://biz-app.staging.pingbusiness.org" not in text("deployment/coolify/env.example"):
-        fail("Coolify env example must default to staging-derived biz-app URL")
-    ok("Coolify adapter uses Compose, private services, one proxy-bound edge, and required variables")
-
-
 def validate_website() -> None:
     html = text("website/pingbusiness-store-launcher.html")
-    for fragment in ["Customize UI", "Deploy store", "Railway", "Coolify", "Qovery", "Northflank", BIZ_APP_URLS["staging"], BIZ_APP_URLS["production"]]:
+    for fragment in ["Customize UI", "Deploy store", "Railway", "Northflank", BIZ_APP_URLS["staging"], BIZ_APP_URLS["production"]]:
         if fragment not in html:
             fail(f"website prompt generator missing {fragment!r}")
+    # Self-hosting is only safe if the generated prompt states the prerequisites a
+    # merchant cannot discover on their own until issuance fails.
+    if 'value="selfhost"' not in html:
+        fail("deployment prompt generator must offer a self-hosted target")
+    for fragment in ["deployment/SELF_HOSTING.md", "dig +short", "ports 80 and 443", "Let's Encrypt", "no --local"]:
+        if fragment not in html:
+            fail(f"self-hosting prompt is missing a prerequisite: {fragment}")
+    if "which of these you can actually do" not in html:
+        fail("deployment prompt must make the agent declare its session capabilities")
+    # A capable agent should hand back a URL during design, and must say what that
+    # view cannot prove — an empty catalogue is the dev server, not a design bug.
+    for fragment in ["npm start", "http://localhost:4200", "http://localhost:5000"]:
+        if fragment not in html:
+            fail(f"design prompt is missing the dev-server instruction: {fragment}")
+    # An assistant with no repository or web access must ask for the kit, not
+    # improvise one. Every generated prompt carries the fallback and the archive
+    # a merchant can actually download.
+    if PUBLIC_RELEASE_ASSET_URL not in html:
+        fail("prompt generator must name the downloadable release archive")
+    # The prompt tells the agent to ask for the archive; the page has to give the
+    # merchant a way to get it without digging through the prompt they just copied.
+    if f'id="download-kit" href="{PUBLIC_RELEASE_ASSET_URL}"' not in html:
+        fail("launcher must offer a one-click kit download for merchants whose agent cannot fetch it")
+    for fragment in ["cannot retrieve the kit", "Do not reconstruct the kit from memory"]:
+        if fragment not in html:
+            fail(f"prompt generator is missing the no-kit-access fallback: {fragment}")
+    if html.count("${CANNOT_FETCH_KIT}") != 4:
+        fail("every generated prompt must carry the no-kit-access fallback")
+    if "Do not ask a merchant to download and re-upload" in text("AGENTS.md"):
+        fail("AGENTS.md still forbids the attachment fallback a chat-only agent needs")
     if re.search(r'<input[^>]+id=["\'].*api.*key', html, re.IGNORECASE):
         fail("static prompt generator must not contain an API-key input field")
     if "Do not paste the merchant API key" not in html:
@@ -508,13 +564,12 @@ def main() -> int:
     validate_required_files()
     validate_hashes()
     validate_input_schema()
+    validate_callback_base_url()
     validate_realm()
     validate_ui()
     validate_compose()
-    validate_qovery()
     validate_northflank()
     validate_railway()
-    validate_coolify()
     validate_website()
     validate_documents()
 

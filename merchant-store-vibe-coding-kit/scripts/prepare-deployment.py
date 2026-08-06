@@ -29,11 +29,12 @@ BIZ_APP_BASE_URLS = {
     "staging": "https://biz-app.staging.pingbusiness.org",
     "production": "https://biz-app.pingbusiness.org",
 }
-SUPPORTED_PLATFORMS = {"compose", "qovery", "northflank", "railway", "coolify"}
-MANAGED_PLATFORMS = {"qovery", "northflank", "railway", "coolify"}
+SUPPORTED_PLATFORMS = {"compose", "northflank", "railway"}
+MANAGED_PLATFORMS = {"northflank", "railway"}
 DEFAULT_KIT_REPOSITORY_URL = "https://github.com/PingBusiness/PingBusiness"
 DEFAULT_KIT_REPOSITORY_BRANCH = "main"
 DEFAULT_KIT_REPOSITORY_ROOT_PATH = "/merchant-store-vibe-coding-kit"
+KIT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class InputError(ValueError):
@@ -243,17 +244,18 @@ def main() -> int:
         raise InputError("Keycloak generated/overridden secrets do not meet minimum length")
     database_password = random_secret(48)
 
+    # The remaining platform adapters size PostgreSQL through their own plan
+    # arguments (Northflank) or provision it interactively (Railway), so these
+    # values are validated for the deployment agent and not emitted anywhere.
     database = require_object(data.get("database"), "database")
-    database_mode = optional_string(database, "mode", "MANAGED").upper()
-    if database_mode not in {"MANAGED", "CONTAINER"}:
+    if optional_string(database, "mode", "MANAGED").upper() not in {"MANAGED", "CONTAINER"}:
         raise InputError("database.mode must be MANAGED or CONTAINER")
-    database_version = optional_string(database, "version", "16")
-    database_storage_gb = int(database.get("storageGb", 20))
-    if database_storage_gb < 10:
+    if int(database.get("storageGb", 20)) < 10:
         raise InputError("database.storageGb must be at least 10")
-    database_instance_type = optional_string(database, "instanceType")
-    database_cpu = int(database.get("containerCpuMillicores", 500))
-    database_memory = int(database.get("containerMemoryMb", 1024))
+    if int(database.get("containerCpuMillicores", 500)) < 250:
+        raise InputError("database.containerCpuMillicores must be at least 250")
+    if int(database.get("containerMemoryMb", 1024)) < 256:
+        raise InputError("database.containerMemoryMb must be at least 256")
 
     kit_repo = require_object(data.get("kitRepository"), "kitRepository")
     repository_url = args.repository_url or optional_string(kit_repo, "url", DEFAULT_KIT_REPOSITORY_URL) or DEFAULT_KIT_REPOSITORY_URL
@@ -270,28 +272,53 @@ def main() -> int:
     elif repository_url:
         repository_url = normalize_repo_url("kitRepository.url", repository_url)
 
+    # The kit's own source/merchant-store tree is a reference implementation to
+    # customize, never a deployable storefront. Every deployment therefore has to
+    # name a merchant-supplied UI, and there is deliberately no mode that builds
+    # the tree shipped in this repository.
     ui = require_object(data.get("uiSource"), "uiSource")
-    ui_mode = optional_string(ui, "mode", "bundled").lower()
-    if ui_mode not in {"bundled", "git"}:
-        raise InputError("uiSource.mode must be bundled or git")
-    if ui_mode == "bundled":
-        if not repository_url and platform != "compose":
-            raise InputError("Bundled managed-platform UI requires the published kit repository URL")
-        ui_repository_url = repository_url or ""
+    ui_mode = require_string(ui, "mode").lower()
+    if ui_mode not in {"git", "local"}:
+        raise InputError("uiSource.mode must be git or local")
+    ui_local_path = ""
+    ui_dockerfile_path = optional_string(ui, "dockerfilePath", "Dockerfile")
+    if ui_dockerfile_path.startswith("/") or ".." in Path(ui_dockerfile_path).parts:
+        raise InputError("uiSource.dockerfilePath must be relative and must not contain '..'")
+    if ui_mode == "local":
+        if platform != "compose":
+            raise InputError(
+                "uiSource.mode 'local' is only supported for the compose platform. A managed "
+                "platform builds from Git, so publish the customized UI to a repository and use "
+                "mode 'git'"
+            )
+        ui_local_path = require_string(ui, "path")
+        if not ui_local_path.startswith("/") or ".." in Path(ui_local_path).parts:
+            raise InputError("uiSource.path must be an absolute path and must not contain '..'")
+        if PLACEHOLDER_RE.search(ui_local_path):
+            raise InputError("uiSource.path still contains a placeholder")
+        if Path(ui_local_path).resolve() == (KIT_ROOT / "source/merchant-store").resolve():
+            raise InputError(
+                "uiSource.path is the kit's own source/merchant-store tree, which is a reference "
+                "implementation and not a deployable storefront. Customize it first and point "
+                "uiSource.path at the customized copy"
+            )
+        ui_repository_url = ""
         ui_branch = repository_branch
-        # The bundled UI is the same checkout as the kit, so it pins to the same commit.
-        ui_sha = repository_sha
-        ui_root_path = join_root_path(repository_root_path, "source/merchant-store")
-        ui_dockerfile_path = "Dockerfile"
+        # A local path is a directory on the target machine, not a checkout, so
+        # there is no commit to pin. The path itself is the build context.
+        ui_sha = ""
+        ui_root_path = "/"
     else:
         ui_repository_url = normalize_repo_url("uiSource.repositoryUrl", require_string(ui, "repositoryUrl"))
         ui_branch = optional_string(ui, "branch", "main")
         ui_sha = optional_git_sha(optional_string(ui, "sha", ""), "uiSource.sha")
         ui_root_path = normalize_root_path(optional_string(ui, "rootPath", "/"))
-        ui_dockerfile_path = optional_string(ui, "dockerfilePath", "Dockerfile")
-        if ui_dockerfile_path.startswith("/") or ".." in Path(ui_dockerfile_path).parts:
-            raise InputError("uiSource.dockerfilePath must be relative and must not contain '..'")
-    qovery_ui_git_token_id = optional_string(ui, "qoveryGitTokenId")
+        if ui_repository_url == repository_url and ui_root_path == join_root_path(repository_root_path, "source/merchant-store"):
+            raise InputError(
+                "uiSource points at the kit's own source/merchant-store tree, which is a reference "
+                "implementation and not a deployable storefront. Publish a customized UI and point "
+                "uiSource at it"
+            )
 
     dns = require_object(data.get("dns"), "dns")
     dns_mode = optional_string(dns, "mode", "manual")
@@ -307,10 +334,8 @@ def main() -> int:
         raise InputError("dns.apiToken is required for provider-api mode")
 
     platform_parameters = require_object(data.get("platformParameters"), "platformParameters")
-    qovery = require_object(platform_parameters.get("qovery"), "platformParameters.qovery")
     northflank = require_object(platform_parameters.get("northflank"), "platformParameters.northflank")
     railway = require_object(platform_parameters.get("railway"), "platformParameters.railway")
-    coolify = require_object(platform_parameters.get("coolify"), "platformParameters.coolify")
 
     store_display_name = optional_string(data, "storeDisplayName")
     store_support_email = optional_string(data, "storeSupportEmail")
@@ -347,9 +372,9 @@ def main() -> int:
         "GUNICORN_THREADS": "4",
         "GUNICORN_TIMEOUT": "120",
     }
-    if ui_mode == "bundled":
-        compose_values["MERCHANT_STORE_BUILD_CONTEXT"] = "../../source/merchant-store"
-        compose_values["MERCHANT_STORE_DOCKERFILE"] = "Dockerfile"
+    if ui_mode == "local":
+        compose_values["MERCHANT_STORE_BUILD_CONTEXT"] = ui_local_path
+        compose_values["MERCHANT_STORE_DOCKERFILE"] = ui_dockerfile_path
     else:
         repo = ui_repository_url[:-4] if ui_repository_url.endswith(".git") else ui_repository_url
         subdir = ui_root_path.strip("/")
@@ -358,49 +383,6 @@ def main() -> int:
 
     compose_env = "\n".join(f"{key}={compose_quote(value)}" for key, value in compose_values.items()) + "\n"
     write_private(output_dir / "compose.env", compose_env)
-
-    if platform == "qovery":
-        organization_id = optional_string(qovery, "organizationId")
-        cluster_id = optional_string(qovery, "clusterId")
-        if not organization_id or not cluster_id:
-            raise InputError("platformParameters.qovery.organizationId and clusterId are required; the Qovery agent should discover them or create/select a cluster first")
-        if database_mode == "MANAGED" and not database_instance_type:
-            raise InputError("database.instanceType is required for a Qovery MANAGED database and must match the selected cloud provider")
-        qovery_values = {
-            "qovery_organization_id": organization_id,
-            "qovery_cluster_id": cluster_id,
-            "project_name": optional_string(qovery, "projectName", deployment_name),
-            "environment_name": optional_string(qovery, "environmentName", "production"),
-            "kit_repository_url": repository_url,
-            "kit_repository_branch": repository_branch,
-            "kit_repository_root_path": repository_root_path,
-            "ui_repository_url": ui_repository_url,
-            "ui_repository_branch": ui_branch,
-            "ui_repository_root_path": ui_root_path,
-            "ui_dockerfile_path": ui_dockerfile_path,
-            "ui_git_token_id": qovery_ui_git_token_id,
-            "pingbusiness_environment": pingbusiness_environment,
-            "store_domain": store_domain,
-            "store_display_name": store_display_name,
-            "store_support_email": store_support_email,
-            "biz_app_base_url": biz_app_base_url,
-            "pingbiz_merchant_identifier": merchant_identifier,
-            "pingbiz_store_identifier": store_identifier,
-            "pingbiz_merchant_api_key": merchant_api_key,
-            "estore_realm": realm,
-            "estore_client_id": client_id,
-            "estore_client_secret": client_secret,
-            "keycloak_admin_username": admin_username,
-            "keycloak_admin_password": admin_password,
-            "database_mode": database_mode,
-            "database_version": database_version,
-            "database_storage_gb": database_storage_gb,
-            "database_instance_type": database_instance_type,
-            "database_cpu_millicores": database_cpu,
-            "database_memory_mb": database_memory,
-            "use_cdn": use_cdn_proxy,
-        }
-        write_private(output_dir / "qovery" / "terraform.tfvars.json", json_text(qovery_values))
 
     if platform == "northflank":
         arguments = {
@@ -486,7 +468,12 @@ def main() -> int:
                 "ESTORE_REALM": realm,
                 "ESTORE_CLIENT_ID": client_id,
                 "ESTORE_CLIENT_SECRET": client_secret,
-                "ESTORE_PUBLIC_BASE_URL": api_url,
+                # The store root, NOT the /api base. estore-app builds PaymentAsia
+                # callbacks as {this}/checkout/return/<id>, and biz-app pins those
+                # by exact path, so an /api prefix fails every create-intent with
+                # HTTP 400 and no checkout can start. The edge routes the callback
+                # paths from the root already; see deployment/edge/routes.caddy.
+                "ESTORE_PUBLIC_BASE_URL": store_url,
                 "ESTORE_ALLOWED_ORIGINS": store_url,
             },
             "merchant-store": {"ESTORE_APP_PUBLIC_URL": "/api"},
@@ -494,42 +481,6 @@ def main() -> int:
         }
         write_public(output_dir / "railway" / "deployment-plan.json", json_text(railway_public))
         write_private(output_dir / "railway" / "service-variables.secret.json", json_text(railway_secret_variables))
-
-    if platform == "coolify":
-        coolify_public = {
-            "applicationName": optional_string(coolify, "applicationName", deployment_name),
-            "projectUuid": optional_string(coolify, "projectUuid"),
-            "serverUuid": optional_string(coolify, "serverUuid"),
-            "environmentName": optional_string(coolify, "environmentName", "production"),
-            "destinationUuid": optional_string(coolify, "destinationUuid"),
-            "instantDeploy": bool(coolify.get("instantDeploy", False)),
-            "kitRepositoryUrl": repository_url,
-            "kitRepositoryBranch": repository_branch,
-            "kitRepositoryRootPath": repository_root_path,
-            "composeFilePath": join_root_path(repository_root_path, "deployment/coolify/compose.yaml"),
-            "storeDomain": store_domain,
-            "pingbusinessEnvironment": pingbusiness_environment,
-            "bizAppBaseUrl": biz_app_base_url,
-        }
-        coolify_env = dict(compose_values)
-        coolify_env.update({
-            "MERCHANT_STORE_BUILD_CONTEXT": "../../source/merchant-store" if ui_mode == "bundled" else compose_values["MERCHANT_STORE_BUILD_CONTEXT"],
-            "MERCHANT_STORE_DOCKERFILE": ui_dockerfile_path,
-        })
-        write_public(output_dir / "coolify" / "deployment-plan.json", json_text(coolify_public))
-        write_private(output_dir / "coolify" / "environment.secret.env", "\n".join(f"{k}={v}" for k, v in sorted(coolify_env.items())) + "\n")
-        api_body = {
-            "project_uuid": optional_string(coolify, "projectUuid"),
-            "server_uuid": optional_string(coolify, "serverUuid"),
-            "environment_name": optional_string(coolify, "environmentName", "production"),
-            "destination_uuid": optional_string(coolify, "destinationUuid"),
-            "name": optional_string(coolify, "applicationName", deployment_name),
-            "description": f"Ping Business merchant store for {store_domain}",
-            "instant_deploy": bool(coolify.get("instantDeploy", False)),
-            "connect_to_docker_network": True,
-            "docker_compose_raw": f"<load {join_root_path(repository_root_path, 'deployment/coolify/compose.yaml')} from {repository_url}@{repository_branch}>",
-        }
-        write_private(output_dir / "coolify" / "api-request-body.secret.json", json_text(api_body))
 
     if dns_mode == "provider-api":
         write_private(output_dir / "dns-provider.json", json_text({"provider": dns_provider, "zone": dns_zone, "apiToken": dns_api_token, "useCdnProxy": use_cdn_proxy}))
