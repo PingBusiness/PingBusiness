@@ -125,8 +125,8 @@ c09760776b7a119b26bf284d201b947e2ba88828f6b159ac30980f9612d44e5b  ./source/merch
 1fe7ecd54c1e7136f04f2658721483284f9992a145d1f5621d443822ad59b78f  ./source/merchant-store/package.json
 066bcf23ee5f40388201e466caf2af482b8a52ac423d5a3f2aaeb444afb4afa6  ./source/merchant-store/run.bat
 87f76a208dc1369cc8fccf500e58f1a761f262bfe951e1785b4d751f9bddda11  ./source/merchant-store/src/app/account/account.component.css
-31bfed13720cea5c9bae5e19e50859ec4e497f4091e07c5c3aa713c6dd82f90e  ./source/merchant-store/src/app/account/account.component.html
-01a7672e1fa3be7549c805cdfd2c5986c6c52c1ec760ee887cfa8f9cb789e09e  ./source/merchant-store/src/app/account/account.component.ts
+32a675a56eb52849119944ff063cfe2c6060a330cbd9aab272311b8d4a9d545b  ./source/merchant-store/src/app/account/account.component.html
+e9c4a4342a6736139ed1dbd346ef125b088ad80c1a30b2addb6d5719bd6c11ef  ./source/merchant-store/src/app/account/account.component.ts
 66a7a60a3271563dd481432b91329df503dd99b4c8bde32a9874bf1e09cab81e  ./source/merchant-store/src/app/app-routing.module.ts
 ee36121af8882b4f3c04c9a1f80e8b5a91f8afae54c70be2a13b8e670a773207  ./source/merchant-store/src/app/app.component.css
 a682abf5e0dab97fb002a7f150285e98a8309cdbe87023607da616c016f73462  ./source/merchant-store/src/app/app.component.html

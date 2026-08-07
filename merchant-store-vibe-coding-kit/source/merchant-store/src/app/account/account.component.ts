@@ -9,6 +9,8 @@ import { KeycloakService } from '../services/keycloak.service';
 import { ToastService } from '../services/toast.service';
 import { apiErrorMessage, asArray, isRecurringPlan } from '../utils';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 @Component({
   selector: 'app-account',
   templateUrl: './account.component.html',
@@ -16,6 +18,10 @@ import { apiErrorMessage, asArray, isRecurringPlan } from '../utils';
 })
 export class AccountComponent implements OnInit {
   profile: Customer = {};
+  // The Edit Profile form binds to this copy, never to `profile` itself, so an
+  // abandoned edit cannot leak into the card behind the modal.
+  draft: Customer = {};
+  profileSubmitted = false;
   purchasedCount: number | null = null;
   subscriptionCount: number | null = null;
 
@@ -58,10 +64,53 @@ export class AccountComponent implements OnInit {
   }
 
   toggleProfilePanel(): void {
-    this.showProfilePanel = !this.showProfilePanel;
     if (this.showProfilePanel) {
-      this.showPasswordPanel = false;
+      this.closeProfilePanel();
+      return;
     }
+    // Open on a snapshot. The form used to bind straight to `profile`, so every
+    // keystroke rewrote the card behind the modal and Cancel looked like it had
+    // saved. The draft is promoted to `profile` only once the API confirms.
+    this.draft = { ...this.profile };
+    this.profileSubmitted = false;
+    this.showProfilePanel = true;
+    this.showPasswordPanel = false;
+  }
+
+  private closeProfilePanel(): void {
+    this.showProfilePanel = false;
+    this.draft = {};
+    this.profileSubmitted = false;
+  }
+
+  private isBlank(value?: string | null): boolean {
+    return !String(value ?? '').trim();
+  }
+
+  get firstNameError(): string {
+    return this.profileSubmitted && this.isBlank(this.draft.first_name) ? 'First name is required.' : '';
+  }
+
+  get lastNameError(): string {
+    return this.profileSubmitted && this.isBlank(this.draft.last_name) ? 'Last name is required.' : '';
+  }
+
+  get emailError(): string {
+    if (!this.profileSubmitted) {
+      return '';
+    }
+    const email = String(this.draft.email ?? '').trim();
+    if (!email) {
+      return 'Email is required.';
+    }
+    return EMAIL_PATTERN.test(email) ? '' : 'Enter a valid email address.';
+  }
+
+  get profileValid(): boolean {
+    const email = String(this.draft.email ?? '').trim();
+    return !this.isBlank(this.draft.first_name)
+      && !this.isBlank(this.draft.last_name)
+      && EMAIL_PATTERN.test(email);
   }
 
   save(): void {
@@ -69,23 +118,28 @@ export class AccountComponent implements OnInit {
       this.toast.show('Customer profile id is missing.', 'error');
       return;
     }
-    this.saving = true;
+    // Surface the messages only once the customer has tried to save, then stop
+    // here rather than sending blank identity fields to the API.
+    this.profileSubmitted = true;
+    if (!this.profileValid) {
+      return;
+    }
     // `details` is a backend-managed JSON field for extra customer info, not a
     // customer-editable text field — do not send it from the account form.
-    this.api.updateCustomer({
+    const payload = {
       id: this.profile.id,
-      first_name: this.profile.first_name,
-      last_name: this.profile.last_name,
-      email: this.profile.email,
-      phone: this.profile.phone,
-      billing_address: this.profile.billing_address
-    }).subscribe({
+      first_name: String(this.draft.first_name ?? '').trim(),
+      last_name: String(this.draft.last_name ?? '').trim(),
+      email: String(this.draft.email ?? '').trim(),
+      phone: String(this.draft.phone ?? '').trim(),
+      billing_address: String(this.draft.billing_address ?? '').trim()
+    };
+    this.saving = true;
+    this.api.updateCustomer(payload).subscribe({
       next: updated => {
         this.saving = false;
-        if (updated && updated.id) {
-          this.profile = { ...updated };
-        }
-        this.showProfilePanel = false;
+        this.profile = updated && updated.id ? { ...updated } : { ...this.profile, ...payload };
+        this.closeProfilePanel();
         this.toast.show('Profile updated.', 'success');
       },
       error: err => {
