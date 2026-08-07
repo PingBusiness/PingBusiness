@@ -35,6 +35,40 @@ Do not request infrastructure credentials during design.
     platform adapter clones the kit from its published repository.
 11. Include `DESIGN_REPORT.md` with changed files, tokens, assets, commands/results, limitations, and deployment handoff.
 
+## Regressions AI customization has actually caused
+
+Every item below was found in a customized store after it looked finished. They
+are design-adjacent, so they survive a visual review; each one reached a real
+merchant. Treat this as a checklist before returning a package.
+
+**Change the design layer only.** Do not alter component structure, data flow,
+routing, or scroll/overflow behaviour to achieve a visual result.
+
+1. **The store name comes from the API.** Bind `store?.name` and leave it empty
+   until it loads. A hardcoded name or fallback constant flashes the wrong brand
+   on every reload before the real value arrives.
+2. **Do not change overflow on list containers.** Keep any overflow scoped to the
+   existing narrow-screen media query. Setting `overflow-x: auto`
+   unconditionally coerces `overflow-y` to `auto`, which turns the wrapper into a
+   scroll container, clips the absolutely-positioned row menu, and adds a
+   spurious vertical scrollbar.
+3. **Keep auth-state gating on every navigation element.** The header renders
+   account and sign-out links behind `*ngIf="authState$ | async"` with a
+   `#signedOut` template for the rest. A rebuilt header or bottom bar that drops
+   that condition offers "Sign Up / Log In" to a customer who is already signed
+   in.
+4. **Never bind a form directly to a loaded model.** Edit a copy and assign it
+   back only once the API confirms. Binding `[(ngModel)]` to the same object the
+   page renders means every keystroke updates the page behind the dialog, so
+   Cancel appears to save.
+5. **Do not rewrite error handling around status codes you assume.** A wrong
+   password is HTTP 400 with `{"error":"invalid_grant"}`, not 401, because
+   `estore-app` forwards Keycloak's OAuth response verbatim. Keep the existing
+   checks; if you touch them, verify against a real failing request.
+
+If a design requirement seems to need one of these changed, say so and ask
+rather than changing it silently.
+
 ## Deployment handoff
 
 The customized UI must support:
