@@ -180,7 +180,7 @@ b833ad02026d921e6e53e9668255636536ec708b5fa3caf6635b50235b709694  ./source/merch
 c697807c838d333eb933d2b26275be89c5fd9ceb77068ed3063d76e35e4b3e77  ./source/merchant-store/src/app/services/toast.service.ts
 014539cbfc1fc4728f08624a2a497cd0a32bd4ede4b83b67687f497f6da0fa0c  ./source/merchant-store/src/app/signin/signin.component.css
 71e62256e7ffbd1cddd7d429afa4017d924b16e42633a80e0ea9e8edb05e76ea  ./source/merchant-store/src/app/signin/signin.component.html
-e01691b9489161c5cad9cbf7d5bcf24bb43e08b3a89be6a68740f0a685bf2599  ./source/merchant-store/src/app/signin/signin.component.ts
+c3e514fb419590b5dc6b9e12674327d305682e1caac50497acf132dcff8bdd2f  ./source/merchant-store/src/app/signin/signin.component.ts
 0922a246465c08a1ee7d80a8ffa1e75c3d1d7af96f29e52cb3e9649f65296920  ./source/merchant-store/src/app/signup/signup.component.css
 41bc510c208f2b1ba30591554d416f65cc8012263c1c672bfbf5f67ef0ab8a58  ./source/merchant-store/src/app/signup/signup.component.html
 409e86d5bea0128039ba6fd1740e4b31c2b54398a49311af695cde5ed5c1710a  ./source/merchant-store/src/app/signup/signup.component.ts
@@ -190,7 +190,7 @@ f596970d67ad6aeb61838e3eb0431eb79b84ee9e2298a6dd6778f8db0fd8d51b  ./source/merch
 a8b6cafe56b4c465250b98ef8a0e9020797f10324debd28c88e6fd7010bd4578  ./source/merchant-store/src/app/subscriptions/subscriptions.component.css
 3cf22f0b7d736eb79ace945f786ca8f0477cc80c1511f36454436e0ac60b1ce3  ./source/merchant-store/src/app/subscriptions/subscriptions.component.html
 5337ede0766d36ff575a3213d8aad0d3a96d57913d461307b29b79a757070cf3  ./source/merchant-store/src/app/subscriptions/subscriptions.component.ts
-bc53de5dfb374a73b571a782884b67cca1f77b07c9011ad83474d757d1143198  ./source/merchant-store/src/app/utils.ts
+62be69ad23c7d123ada94b364df8c9cbcfcb20430aa913203c25707bfa757384  ./source/merchant-store/src/app/utils.ts
 ee3374fdba730c5cd82d106a906a8ea1a1b051eb639be667d4c3ee4a28286550  ./source/merchant-store/src/assets/arrow-left-small.svg
 bf05fec7ca6361b8e450867035327f641017f279852da48da41a7a281035be1d  ./source/merchant-store/src/assets/arrow-right-small.svg
 8a3e8334ae638be719986e065e9cfc77ea32ff7bc42eb4f099b63d93594a0c66  ./source/merchant-store/src/assets/arrows-rotate.svg
