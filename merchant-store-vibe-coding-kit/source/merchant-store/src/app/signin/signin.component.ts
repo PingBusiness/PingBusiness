@@ -48,8 +48,15 @@ export class SigninComponent implements OnInit {
       },
       error: err => {
         this.loading = false;
-        // 401 means bad credentials; the raw message is just "Unauthorized".
-        const message = err?.status === 401 ? 'Invalid email or password.' : apiErrorMessage(err);
+        // A wrong password arrives as HTTP 400, not 401. Keycloak's token
+        // endpoint answers it with {"error":"invalid_grant"} per RFC 6749
+        // section 5.2, and estore-app's /login forwards Keycloak's body and
+        // status verbatim. Checking only 401 therefore missed the commonest
+        // failure of this form and showed the customer the raw OAuth code.
+        // 401 is kept for the paths estore-app normalises itself.
+        const badCredentials = err?.status === 401
+          || (err?.status === 400 && err?.error?.error === 'invalid_grant');
+        const message = badCredentials ? 'Invalid email or password.' : apiErrorMessage(err);
         this.error = message;
         this.toast.show(message, 'error');
       }

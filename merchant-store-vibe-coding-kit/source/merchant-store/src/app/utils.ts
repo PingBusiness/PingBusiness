@@ -95,6 +95,14 @@ export function apiErrorMessage(error: any): string {
     if (typeof error.error === 'string') {
       return error.error;
     }
+    // An OAuth error body forwarded from Keycloak puts a machine code in
+    // `error` ("invalid_grant") and the human-readable text in
+    // `error_description`. Prefer the description: the bare code means nothing
+    // to a customer. estore-app's own errors set `error` to a message and never
+    // set `error_description`, so this only changes forwarded OAuth bodies.
+    if (typeof error.error.error_description === 'string' && error.error.error_description) {
+      return error.error.error_description;
+    }
     if (error.error.error) {
       return error.error.error;
     }
