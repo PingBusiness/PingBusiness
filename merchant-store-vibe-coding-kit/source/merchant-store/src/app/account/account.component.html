@@ -73,30 +73,30 @@
       <div class="form-grid two">
         <label class="edit-label">
           <span>First name</span>
-          <app-input-field name="first_name" [(ngModel)]="profile.first_name" placeholder="First name"></app-input-field>
+          <app-input-field name="first_name" [(ngModel)]="draft.first_name" placeholder="First name" [error]="firstNameError"></app-input-field>
         </label>
         <label class="edit-label">
           <span>Last name</span>
-          <app-input-field name="last_name" [(ngModel)]="profile.last_name" placeholder="Last name"></app-input-field>
+          <app-input-field name="last_name" [(ngModel)]="draft.last_name" placeholder="Last name" [error]="lastNameError"></app-input-field>
         </label>
       </div>
       <div class="form-grid two">
         <label class="edit-label">
           <span>Email</span>
-          <app-input-field name="email" [(ngModel)]="profile.email" type="email" autocomplete="email" placeholder="Email"></app-input-field>
+          <app-input-field name="email" [(ngModel)]="draft.email" type="email" autocomplete="email" placeholder="Email" [error]="emailError"></app-input-field>
         </label>
         <label class="edit-label">
           <span>Phone</span>
-          <app-input-field name="phone" [(ngModel)]="profile.phone" autocomplete="tel" placeholder="Phone"></app-input-field>
+          <app-input-field name="phone" [(ngModel)]="draft.phone" autocomplete="tel" placeholder="Phone"></app-input-field>
         </label>
       </div>
       <label class="edit-label">
         <span>Billing address</span>
-        <app-input-field name="billing_address" [(ngModel)]="profile.billing_address" placeholder="Billing address"></app-input-field>
+        <app-input-field name="billing_address" [(ngModel)]="draft.billing_address" placeholder="Billing address"></app-input-field>
       </label>
       <div class="edit-actions">
         <button type="button" class="outline pill" (click)="toggleProfilePanel()">Cancel</button>
-        <button type="submit" class="accent pill" [disabled]="saving || !profile.id">{{ saving ? 'Saving…' : 'Save changes' }}</button>
+        <button type="submit" class="accent pill" [disabled]="saving || !profile.id || (profileSubmitted && !profileValid)">{{ saving ? 'Saving…' : 'Save changes' }}</button>
       </div>
     </form>
   </div>
@@ -118,12 +118,18 @@
       </div>
 
       <form class="pw-form" (ngSubmit)="changePassword()">
-        <app-input-field name="current_password" [(ngModel)]="password.current_password" type="password"
-          autocomplete="current-password" placeholder="Enter current password" icon="lock"></app-input-field>
+        <label class="edit-label">
+          <span>Current password</span>
+          <app-input-field name="current_password" [(ngModel)]="password.current_password" type="password"
+            autocomplete="current-password" placeholder="Enter current password" icon="lock"></app-input-field>
+        </label>
 
         <div class="pw-field">
-          <app-input-field name="new_password" [(ngModel)]="password.new_password" type="password"
-            autocomplete="new-password" placeholder="Enter new password" icon="lock"></app-input-field>
+          <label class="edit-label">
+            <span>New password</span>
+            <app-input-field name="new_password" [(ngModel)]="password.new_password" type="password"
+              autocomplete="new-password" placeholder="Enter new password" icon="lock"></app-input-field>
+          </label>
           <div class="pw-rules">
             <span class="pw-rule" [class.ok]="pwHasMinLength">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 12.5l2.5 2.5 4.5-5"></path></svg>
@@ -140,8 +146,11 @@
           </div>
         </div>
 
-        <app-input-field name="confirm_password" [(ngModel)]="password.confirm_password" type="password"
-          autocomplete="new-password" placeholder="Re-enter new password" icon="lock"></app-input-field>
+        <label class="edit-label">
+          <span>Confirm new password</span>
+          <app-input-field name="confirm_password" [(ngModel)]="password.confirm_password" type="password"
+            autocomplete="new-password" placeholder="Re-enter new password" icon="lock"></app-input-field>
+        </label>
 
         <button type="submit" class="pw-submit" [disabled]="passwordSaving || !password.current_password || !pwValid">
           {{ passwordSaving ? 'Updating…' : 'Confirm new Password' }}

@@ -50,7 +50,7 @@ eb1a0a7768c5855d8ae27f165883409bc2ea01658b262e2763af48111eeb0d82  ./deployment/n
 fb3fd2c41c762aa1be5a396f43f78fb929d36350857e27050819c9cc636c2de6  ./deployment/railway/variables.example.json
 7c30a4533065f985e14ebc21b9e0227272c2ff60c780d42ee1151936799fd110  ./design/ASSET_MANIFEST.md
 1f4588bc22fd23c8ffc6779933952c4d7c8dd14c0b8635d051c8e33a89f1f8aa  ./design/DESIGN_ACCEPTANCE_CHECKLIST.md
-e761e192f62e5de1fb313e0d2bec43b511792c11f0af70a443256dea137a8711  ./design/DESIGN_AGENT.md
+325799ebb520043c7ad9b22aa22a245eb08173ea04293d613a9fb8d6954db549  ./design/DESIGN_AGENT.md
 cfee9cdc397a0fa77aa37e6e0c380f07a643d7bc0d1823b2a2d5bfdc77a4975f  ./design/DESIGN_REPORT_TEMPLATE.md
 afd0daba8f9b3bffc494c6ef31d81979843f3544069baa126e3dbf3aa7b0b55f  ./design/MERCHANT_DESIGN_BRIEF.yaml
 f7e1de87165a99114aaaf65b2cbf926b2c26df677a71b9fb66b8763dd8fc7075  ./docs/ARCHITECTURE.md
@@ -75,13 +75,13 @@ c0ee2c01270411fcd5c8bf8e78d080237c4d1c61ae34d197c935d29cf50a8833  ./keycloak/rea
 36e233e7e7ea6f2fb7e99d14f7bff4af8564bd164b0cda888aa9520aafa0c661  ./kit-metadata.json
 db93650b6a5e82362ccbaa778203213a8ceacb3f278aef632ebc775358e2b3b5  ./llms.txt
 2b6199e92b70bd450c30dd80b493816dde2a37b4683338e7d4106ca043702b3c  ./prompts/DEPLOY_PROMPT.md
-9703f0102157ebaa9127b55bbe87c53a56b9bfe3aa127601278c0fff1b0a8bd2  ./prompts/DESIGN_PROMPT.md
+20141b5e75df5894c15763153391688bf43338c1332dd8f52977c2132620f3c9  ./prompts/DESIGN_PROMPT.md
 197bfc6a3b73121f29c191de5fa95fca765164007c6a764654b10bb983d2d539  ./scripts/collect-merchant-secrets.sh
 7f735f46528e15002adf6688470e8f50f4f2c339390252a52b7e0fa361ee64d7  ./scripts/prepare-deployment.py
 ea92c8fadbfdf127d7b0cc13314dc01904964b171f91c88ca0e2c37892aae936  ./scripts/public-smoke-test.py
 f3069e66ffdc23a298abcae97bd1e13865bb81403f130467993e70015ae5a0e8  ./scripts/scan-frontend-secrets.py
 1d192a3ba20e623b41c2749c2353063cbd4c4c9a5ce76023692c06484f03e237  ./scripts/test-ui-runtime-config.sh
-9d8cd6c6313bd2b8acd5c9bd33db2c9072de4f51dface646c6fcb1a2b1652f91  ./scripts/validate-kit.py
+145e2541f81ffb4920cacf9c40bc9294f41ef5687380bd4f4e82d159a8057b6a  ./scripts/validate-kit.py
 d2f67325e86ec565a465ee3d94329fd22f76995fac671384752fb0bed34667a2  ./scripts/validate.sh
 68ac115a8067d4985f501c0f2d43b5d13fdfecbb566afc8b7d5a74626654ce06  ./source/estore-app/.dockerignore
 47a23ec3a741f47e3857f544441cdde89608645a6c10d7d83f609bbc39ce3382  ./source/estore-app/01-build.sh
@@ -125,8 +125,8 @@ c09760776b7a119b26bf284d201b947e2ba88828f6b159ac30980f9612d44e5b  ./source/merch
 1fe7ecd54c1e7136f04f2658721483284f9992a145d1f5621d443822ad59b78f  ./source/merchant-store/package.json
 066bcf23ee5f40388201e466caf2af482b8a52ac423d5a3f2aaeb444afb4afa6  ./source/merchant-store/run.bat
 87f76a208dc1369cc8fccf500e58f1a761f262bfe951e1785b4d751f9bddda11  ./source/merchant-store/src/app/account/account.component.css
-31bfed13720cea5c9bae5e19e50859ec4e497f4091e07c5c3aa713c6dd82f90e  ./source/merchant-store/src/app/account/account.component.html
-01a7672e1fa3be7549c805cdfd2c5986c6c52c1ec760ee887cfa8f9cb789e09e  ./source/merchant-store/src/app/account/account.component.ts
+32a675a56eb52849119944ff063cfe2c6060a330cbd9aab272311b8d4a9d545b  ./source/merchant-store/src/app/account/account.component.html
+e9c4a4342a6736139ed1dbd346ef125b088ad80c1a30b2addb6d5719bd6c11ef  ./source/merchant-store/src/app/account/account.component.ts
 66a7a60a3271563dd481432b91329df503dd99b4c8bde32a9874bf1e09cab81e  ./source/merchant-store/src/app/app-routing.module.ts
 ee36121af8882b4f3c04c9a1f80e8b5a91f8afae54c70be2a13b8e670a773207  ./source/merchant-store/src/app/app.component.css
 a682abf5e0dab97fb002a7f150285e98a8309cdbe87023607da616c016f73462  ./source/merchant-store/src/app/app.component.html
@@ -218,4 +218,4 @@ f4abee69580f9dccbf9f9434365c6106a59fa8006a43c6292b0ccd868723db02  ./source/merch
 ffbc91963a2ac963568f8bd16741d5059f0af5a9a4e3dab1c28d1749e99a98cf  ./source/merchant-store/tsconfig.json
 bd5dfc878de6de9ac196ee169bf7b6652621e9e575bd96b2307eb3794f0f4dc3  ./source/merchant-store/tsconfig.spec.json
 897f72db8864e9e1fe1c03465fa4c1cd6c840743b2125c09c4ba79ba8284f2cc  ./website/README.md
-af9a226d89daf6e4d7324426779a84275ee3fec024a3ec94b4f6da5941233660  ./website/pingbusiness-store-launcher.html
+78655be84a7fdb0a660b9615438c9980934559df235ab1cc1e9707914b1a6d6c  ./website/pingbusiness-store-launcher.html

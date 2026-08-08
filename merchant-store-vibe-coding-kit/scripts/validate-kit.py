@@ -439,6 +439,14 @@ def validate_website() -> None:
     for fragment in ["deployment/SELF_HOSTING.md", "dig +short", "ports 80 and 443", "Let's Encrypt", "no --local"]:
         if fragment not in html:
             fail(f"self-hosting prompt is missing a prerequisite: {fragment}")
+    # Each of these guards exists because the regression actually shipped. An
+    # agent that never reads them repeats the bug the merchant already reported.
+    for fragment in ["authState$ | async", "invalid_grant", "overflow-x: auto", "store?.name"]:
+        if fragment not in html:
+            fail(f"design prompt is missing an AI-regression guard: {fragment}")
+    for doc in ["design/DESIGN_AGENT.md", "prompts/DESIGN_PROMPT.md"]:
+        if "Regressions AI customization has actually caused" not in text(doc):
+            fail(f"{doc} is missing the observed-regression checklist")
     if "which of these you can actually do" not in html:
         fail("deployment prompt must make the agent declare its session capabilities")
     # A capable agent should hand back a URL during design, and must say what that
