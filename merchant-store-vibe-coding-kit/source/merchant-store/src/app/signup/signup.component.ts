@@ -6,6 +6,11 @@ import { KeycloakService } from '../services/keycloak.service';
 import { ToastService } from '../services/toast.service';
 import { apiErrorMessage } from '../utils';
 
+// Basic email shape check: a local part, an @, a domain with a dot. Keycloak
+// rejects malformed addresses server-side, but validating here gives an
+// immediate, friendly error instead of a late backend failure.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 @Component({
   selector: 'app-signup',
   templateUrl: './signup.component.html',
@@ -47,6 +52,15 @@ export class SignupComponent {
   ) {}
 
   submit(): void {
+    const email = this.form.email.trim();
+    if (!email) {
+      this.toast.show('Email address is required.', 'error');
+      return;
+    }
+    if (!EMAIL_RE.test(email)) {
+      this.toast.show('Enter a valid email address.', 'error');
+      return;
+    }
     if (this.form.password !== this.form.confirmPassword) {
       this.toast.show('Passwords do not match.', 'error');
       return;
@@ -59,7 +73,7 @@ export class SignupComponent {
       this.toast.show('Billing address is required.', 'error');
       return;
     }
-    const username = (this.form.username || this.form.email).trim().toLowerCase();
+    const username = (this.form.username || email).trim().toLowerCase();
     if (!username) {
       this.toast.show('Username or email is required.', 'error');
       return;
@@ -67,7 +81,7 @@ export class SignupComponent {
     this.loading = true;
     const body = {
       username,
-      email: this.form.email || username,
+      email,
       password: this.form.password,
       first_name: this.form.first_name,
       last_name: this.form.last_name,

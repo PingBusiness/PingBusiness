@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -142,6 +143,49 @@ def bearer_token_from_request() -> Optional[str]:
 
 def normalize_username(username: Optional[str]) -> Optional[str]:
     return username.strip().lower() if username else None
+
+
+# What counts as an email address at sign-up. estore-ui/src/app/utils.ts carries
+# the same rule for the form; keep the two in step.
+#
+# Deliberately stricter than "something@something.something": Keycloak stores
+# whatever we hand it, so an address that cannot receive mail becomes a customer
+# who can never reset a password or be sent an order confirmation, and nothing
+# downstream ever re-checks. Local part is dot-separated atoms with no leading,
+# trailing or doubled dot; domain labels are alphanumeric-ended with hyphens only
+# inside; the last label is a real TLD (letters, or a punycode IDN).
+EMAIL_MAX_LENGTH = 254
+EMAIL_LOCAL_MAX_LENGTH = 64
+EMAIL_DOMAIN_MAX_LENGTH = 253
+EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+    r"(?:[A-Za-z]{2,63}|[Xx][Nn]--[A-Za-z0-9-]{2,59})$"
+)
+
+
+def valid_email(value: Any) -> bool:
+    if not isinstance(value, str) or not 0 < len(value) <= EMAIL_MAX_LENGTH:
+        return False
+    if not EMAIL_PATTERN.match(value):
+        return False
+    local, _, domain = value.rpartition("@")
+    return len(local) <= EMAIL_LOCAL_MAX_LENGTH and len(domain) <= EMAIL_DOMAIN_MAX_LENGTH
+
+
+def effective_customer_email(data: Dict[str, Any]) -> Optional[str]:
+    """The address the customer record will actually carry, normalized, or None
+    when it is not a usable address.
+
+    `email` and `username` default to each other on the sign-up form, so the one
+    that ends up on the account is whichever was filled in — that is the value
+    worth validating, not the raw `email` field.
+    """
+    raw = data.get("email") or data.get("username")
+    if not isinstance(raw, str):
+        return None
+    candidate = raw.strip().lower()
+    return candidate if valid_email(candidate) else None
 
 
 def parse_payment_networks(value: Any) -> List[str]:
@@ -567,12 +611,19 @@ def create_estore_user(data: Dict[str, Any]) -> str:
     if not password:
         raise ValueError("Missing 'password' parameter")
 
+    # Checked before the account is created, not after the first bounce: this is
+    # the only gate between the sign-up form and a Keycloak user that keeps its
+    # address forever.
+    email = effective_customer_email(data)
+    if not email:
+        raise ValueError("Enter a valid email address")
+
     if get_estore_user_id_by_username(username):
         raise FileExistsError("Customer login already exists")
 
     user_data = {
         "username": username,
-        "email": data.get("email", username),
+        "email": email,
         "enabled": True,
         "credentials": [{"type": "password", "value": password, "temporary": False}],
     }
@@ -1279,6 +1330,16 @@ def set_customer():
         if any(field in data for field in forbidden):
             return error("Cannot update identity or system-controlled customer fields", 400)
 
+        # Same rule as sign-up: profile editing is the other door onto the
+        # account's address, and it reaches both BCustomers and Keycloak below.
+        # Normalized in place so the business record and the Keycloak patch agree.
+        if "email" in data:
+            candidate = data.get("email")
+            candidate = candidate.strip().lower() if isinstance(candidate, str) else candidate
+            if not valid_email(candidate):
+                return error("Enter a valid email address", 400)
+            data["email"] = candidate
+
         body = allowed_customer_update_body(data)
         if not body:
             return error("No updatable customer fields supplied", 400)
@@ -1328,7 +1389,9 @@ def set_customer():
         "details": data.get("details"),
         "shipping_address": data.get("shipping_address"),
         "billing_address": data.get("billing_address"),
-        "email": data.get("email") or data.get("username"),
+        # Already validated by create_estore_user above, so the business record
+        # and the Keycloak user carry the same normalized address.
+        "email": effective_customer_email(data),
         "phone": data.get("phone"),
     }
     if not biz_body["first_name"]:
