@@ -98,6 +98,18 @@ export class EstoreApiService {
     return this.keycloak.post(this.url('/subscribe'), payload, 'text') as Observable<string>;
   }
 
+  /**
+   * Cancel a customer's own recurring subscription (order item). estore-app
+   * verifies the item belongs to this customer, then proxies to biz-app. No body.
+   * Success returns the serialized order item (recurring_status CANCELLED). Any
+   * non-2xx means nothing changed — the subscription is still active; safe to retry.
+   */
+  cancelRecurring(orderItemId: number): Observable<OrderItem> {
+    return this.keycloak.post(
+      this.url(`/order_item/${encodeURIComponent(orderItemId)}/recurring/cancel`), {}
+    ) as Observable<OrderItem>;
+  }
+
   checkoutStatus(checkoutId: string): Observable<CheckoutStatus> {
     return this.keycloak.get(this.url(`/checkout/status/${encodeURIComponent(checkoutId)}`)) as Observable<CheckoutStatus>;
   }

@@ -29,6 +29,11 @@ export class SubscriptionsComponent implements OnInit {
   menuPos: { top: number; right: number } | null = null;
   private productNames = new Map<number, string>();
 
+  /** Subscription awaiting cancel confirmation in the modal; null = closed. */
+  pendingCancel: OrderItem | null = null;
+  /** True while the cancel request (external provider hop) is in flight. */
+  cancelling = false;
+
   constructor(private api: EstoreApiService, private toast: ToastService) {}
 
   ngOnInit(): void {
@@ -135,5 +140,77 @@ export class SubscriptionsComponent implements OnInit {
 
   statusClass(item: OrderItem): string {
     return String(item.recurring_status || '').toLowerCase();
+  }
+
+  /**
+   * A subscription can be cancelled while it is still chargeable. CANCELLED (no
+   * further charges) and COMPLETED (all executions ran) are terminal — hide the
+   * action there (a repeat cancel is a 200 no-op / 409 respectively).
+   */
+  canCancel(item: OrderItem): boolean {
+    return ['PENDING', 'ACTIVE', 'ERROR', 'UNKNOWN'].includes(
+      String(item.recurring_status || '').toUpperCase()
+    );
+  }
+
+  /** Open the cancel-confirmation modal for a subscription. */
+  askCancel(item: OrderItem): void {
+    this.closeMenu();
+    if (this.cancelling || !this.canCancel(item)) {
+      return;
+    }
+    this.pendingCancel = item;
+  }
+
+  closeCancel(): void {
+    if (this.cancelling) {
+      return;
+    }
+    this.pendingCancel = null;
+  }
+
+  /** Date the current paid period ends / the next renewal would have charged. */
+  cancelEndDate(item: OrderItem | null): Date | null {
+    const raw = item?.recurring_start_date;
+    if (!raw) {
+      return null;
+    }
+    const date = new Date(raw);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  /** Whole days from today until the access-until date (never negative). */
+  cancelDaysFromNow(item: OrderItem | null): number {
+    const date = this.cancelEndDate(item);
+    if (!date) {
+      return 0;
+    }
+    return Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86400000));
+  }
+
+  /**
+   * Cancel the renewal. The call includes a synchronous hop to PaymentAsia, so
+   * the button shows a spinner. Only a 2xx means it was cancelled; on any error
+   * the subscription is unchanged (still active) and the merchant can retry.
+   */
+  confirmCancel(): void {
+    const item = this.pendingCancel;
+    if (!item || this.cancelling || !item.id || !this.canCancel(item)) {
+      return;
+    }
+    this.cancelling = true;
+    this.api.cancelRecurring(Number(item.id)).subscribe({
+      next: () => {
+        this.cancelling = false;
+        this.pendingCancel = null;
+        this.toast.show('Subscription renewal cancelled. You keep access until the current period ends.', 'success');
+        this.load();
+      },
+      error: err => {
+        // Nothing changed — keep the modal open so the customer can retry.
+        this.cancelling = false;
+        this.toast.show(apiErrorMessage(err), 'error');
+      }
+    });
   }
 }

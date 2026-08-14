@@ -1689,6 +1689,21 @@ def get_order_item(order_item_id: int):
     return proxy_response(payload, status)
 
 
+@app.route("/order_item/<int:order_item_id>/recurring/cancel", methods=["POST"])
+@customer_required
+def cancel_recurring_order_item(order_item_id: int):
+    customer, err = require_current_customer()
+    if err:
+        return err
+    _, _, err = validate_order_item_scope(order_item_id, customer)
+    if err:
+        return err
+    payload, status = biz_request("POST", f"/order_item/{order_item_id}/recurring/cancel")
+    if status < 400:
+        payload = ensure_order_item_state_field(payload)
+    return proxy_response(payload, status)
+
+
 # Order items are finalized by biz-app from the trusted intent snapshot after
 # verified one-time payment or authenticated subscription schedule acceptance.
 # Customer-facing POST /order_item is intentionally not exposed.

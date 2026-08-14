@@ -410,6 +410,7 @@ For `Octopus`, the trusted checkout total must be an exact multiple of HKD 0.10.
 | `GET` | `/order/{order_id}` | Yes | `Order` |
 | `GET` | `/order_items` | Yes | `OrderItem[]` |
 | `GET` | `/order_item/{order_item_id}` | Yes | `OrderItem` |
+| `POST` | `/order_item/{order_item_id}/recurring/cancel` | Yes | `OrderItem` |
 | `GET` | `/payments` | Yes | one-time `Payment[]` |
 | `GET` | `/payment/{payment_id}` | Yes | one-time `Payment` |
 | `POST` | `/checkout` | Yes | HTML or launch JSON |
@@ -770,6 +771,19 @@ The parent order must belong to the current customer and configured scope.
 
 **Success — `200`**: `OrderItem`.
 
+#### `POST /order_item/{order_item_id}/recurring/cancel`
+
+Cancels the customer's own recurring subscription. The parent order must belong
+to the current customer and configured scope; `estore-app` verifies that before
+proxying to biz-app. The request takes no body.
+
+**Success — `200`**: the serialized `OrderItem`, with `recurring_status` moved to
+`CANCELLED`.
+
+Any non-2xx means nothing changed and the subscription is still active, so the
+call is safe to retry. Cancelling stops future collections; it is not a refund
+and does not alter payments already taken.
+
 #### Deliberately absent writes
 
 The customer API does not expose:
@@ -780,7 +794,12 @@ The customer API does not expose:
 - `DELETE /order_item/{id}`
 - delivery-state mutation
 
-Orders and order items are finalized by the verified checkout transaction and are immutable from the customer storefront.
+Orders and order items are finalized by the verified checkout transaction. The
+only customer-initiated write is
+`POST /order_item/{order_item_id}/recurring/cancel`, which moves
+`recurring_status` to `CANCELLED` on the customer's own subscription and changes
+nothing else. Order and order-item records are otherwise immutable from the
+customer storefront.
 
 ---
 
