@@ -99,10 +99,10 @@ export class EstoreApiService {
   }
 
   /**
-   * Cancel a customer's own recurring subscription (order item). estore-app
-   * verifies the item belongs to this customer, then proxies to biz-app. No body.
-   * Success returns the serialized order item (recurring_status CANCELLED). Any
-   * non-2xx means nothing changed — the subscription is still active; safe to retry.
+   * Stop a customer's own recurring payments (their subscription order item).
+   * estore-app verifies the item belongs to this customer, then proxies to
+   * biz-app. No body. Success returns the serialized order item (recurring_status
+   * CANCELLED). Any non-2xx means nothing changed — still active; safe to retry.
    */
   cancelRecurring(orderItemId: number): Observable<OrderItem> {
     return this.keycloak.post(

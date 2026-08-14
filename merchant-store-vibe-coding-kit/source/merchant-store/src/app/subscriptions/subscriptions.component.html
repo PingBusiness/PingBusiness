@@ -54,9 +54,9 @@
   </div>
 </div>
 
-<!-- Cancel Subscription Renewal — confirmation (Figma: Subscriptions / Cancel, node 1156-34394) -->
+<!-- Cancel subscription — confirmation (Figma: Subscriptions / Cancel, node 1156-34394) -->
 <div class="cancel-overlay" *ngIf="pendingCancel" (click)="closeCancel()">
-  <div class="cancel-modal" role="dialog" aria-modal="true" aria-label="Cancel subscription renewal"
+  <div class="cancel-modal" role="dialog" aria-modal="true" aria-label="Cancel subscription"
     (click)="$event.stopPropagation()">
     <div class="cancel-head">
       <button type="button" class="cancel-x" (click)="closeCancel()" aria-label="Close">
@@ -68,37 +68,28 @@
 
     <div class="cancel-main">
       <div class="cancel-content">
-        <h2 class="cancel-title">Cancel Subscription Renewal</h2>
-        <p class="cancel-sub">Cancel your subscription to<br>{{ productName(pendingCancel) }}?</p>
+        <h2 class="cancel-title">Cancel subscription?</h2>
+        <p class="cancel-sub">Cancel the {{ productName(pendingCancel) }} subscription?<br>Here's what happens:</p>
 
         <div class="cancel-list">
           <span class="pt-icon bad">
             <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="11" fill="currentColor"></circle><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2" stroke-linecap="round"></path></svg>
           </span>
-          <p class="pt-text">We'll cancel the upcoming renewal — you keep everything until your current period ends. No more charges after that.</p>
+          <p class="pt-text">No further recurring charges are made for this subscription</p>
         </div>
         <div class="cancel-div"></div>
         <div class="cancel-list">
           <span class="pt-icon bad">
             <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="11" fill="currentColor"></circle><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2" stroke-linecap="round"></path></svg>
           </span>
-          <p class="pt-text">After {{ (cancelEndDate(pendingCancel) | date:'MMM d') || 'the current period ends' }}, you'll lose access to {{ productName(pendingCancel) }} and stop receiving updates.</p>
+          <p class="pt-text">This can't be undone — you would have to subscribe again</p>
         </div>
-        <ng-container *ngIf="cancelEndDate(pendingCancel)">
-          <div class="cancel-div"></div>
-          <div class="cancel-list">
-            <span class="pt-icon good">
-              <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="11" fill="currentColor"></circle><path d="M7.5 12.5l3 3 6-6.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
-            </span>
-            <p class="pt-text">Access continues until {{ cancelEndDate(pendingCancel) | date:'MMM d, y' }} ({{ cancelDaysFromNow(pendingCancel) }} days from now)</p>
-          </div>
-        </ng-container>
       </div>
 
       <div class="cancel-actions">
-        <button type="button" class="cancel-btn secondary" (click)="closeCancel()" [disabled]="cancelling">Cancel</button>
+        <button type="button" class="cancel-btn secondary" (click)="closeCancel()" [disabled]="cancelling">No, keep it</button>
         <button type="button" class="cancel-btn danger" (click)="confirmCancel()" [disabled]="cancelling">
-          {{ cancelling ? 'Cancelling…' : 'Cancel Renewal' }}
+          {{ cancelling ? 'Stopping…' : 'Yes, cancel' }}
         </button>
       </div>
     </div>

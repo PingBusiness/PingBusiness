@@ -165,7 +165,7 @@
   color: var(--color-error);
 }
 
-/* Cancel Subscription Renewal confirmation modal (Figma node 1156-34394). */
+/* Cancel-subscription confirmation modal (Figma node 1156-34394). */
 .cancel-overlay {
   position: fixed;
   inset: 0;

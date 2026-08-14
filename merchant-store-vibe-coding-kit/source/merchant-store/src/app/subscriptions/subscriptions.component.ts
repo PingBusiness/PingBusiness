@@ -169,29 +169,11 @@ export class SubscriptionsComponent implements OnInit {
     this.pendingCancel = null;
   }
 
-  /** Date the current paid period ends / the next renewal would have charged. */
-  cancelEndDate(item: OrderItem | null): Date | null {
-    const raw = item?.recurring_start_date;
-    if (!raw) {
-      return null;
-    }
-    const date = new Date(raw);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
-  /** Whole days from today until the access-until date (never negative). */
-  cancelDaysFromNow(item: OrderItem | null): number {
-    const date = this.cancelEndDate(item);
-    if (!date) {
-      return 0;
-    }
-    return Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86400000));
-  }
-
   /**
-   * Cancel the renewal. The call includes a synchronous hop to PaymentAsia, so
-   * the button shows a spinner. Only a 2xx means it was cancelled; on any error
-   * the subscription is unchanged (still active) and the merchant can retry.
+   * Stop the subscription's recurring payments. The call includes a synchronous
+   * hop to PaymentAsia, so the button shows a spinner. Only a 2xx means it was
+   * stopped; on any error the subscription is unchanged (still active) and the
+   * customer can retry.
    */
   confirmCancel(): void {
     const item = this.pendingCancel;
@@ -203,7 +185,7 @@ export class SubscriptionsComponent implements OnInit {
       next: () => {
         this.cancelling = false;
         this.pendingCancel = null;
-        this.toast.show('Subscription renewal cancelled. You keep access until the current period ends.', 'success');
+        this.toast.show('Subscription has been stopped.', 'success');
         this.load();
       },
       error: err => {
