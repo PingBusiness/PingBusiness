@@ -55,7 +55,7 @@ cfee9cdc397a0fa77aa37e6e0c380f07a643d7bc0d1823b2a2d5bfdc77a4975f  ./design/DESIG
 afd0daba8f9b3bffc494c6ef31d81979843f3544069baa126e3dbf3aa7b0b55f  ./design/MERCHANT_DESIGN_BRIEF.yaml
 f7e1de87165a99114aaaf65b2cbf926b2c26df677a71b9fb66b8763dd8fc7075  ./docs/ARCHITECTURE.md
 771471063fdea379bd7b803e0f055b867ce8b3c3be3978ed374f036296f7df9c  ./docs/BACKUP_AND_RESTORE.md
-d8d7fa3d0196a9883db4732cf78a2f5114d5279698ee82681483900f780825f3  ./docs/ESTORE_APP_API_SPEC.md
+ce1109ca0dcb12cfab08858f59bf52dcbb3717df975e60619301823cf9e9dc79  ./docs/ESTORE_APP_API_SPEC.md
 bf5285e711bc7dbe18012a75d64b01930f4df1eb0578c711052c0f9aed2877b0  ./docs/MERCHANT_STORE_REFERENCE_ARCHITECTURE.md
 316386cd7d293d91414c6e17fe1160c9a27d514c783117664f5babf91a66fcac  ./docs/OPERATIONS.md
 e4ebb652c355a8f4e6485776755e905a703999ce5403a6a0835f500a3a551574  ./docs/PLATFORM_SUPPORT.md
@@ -99,8 +99,9 @@ bd7ce730314e19146efc3c15655693c06c180bcf33945fae45948c6120aa0c0c  ./source/estor
 d98f11568b332183a68c071233c4337c1192ebec9e32cbd40bb79ad84c898c56  ./source/estore-app/tests/test1.py
 aaaf44eaa8710eb891f47740613c6cca4f957951a393f5a187adb805a99331fd  ./source/estore-app/tests/test10.py
 97282da7c016f3d9dd52657119ce8c93e051e798153dcf19ccbaccc358651194  ./source/estore-app/tests/test11.py
-73bda5056fce121dce193171cf9463fa23cffc99798ece0c9075365d5bda1211  ./source/estore-app/tests/test12.py
-ac31f31a7b050b87df23b57ae56326c3c516076f09fe471e5a3bf250f40b8881  ./source/estore-app/tests/test13.py
+a6434f03c444e011fb7a37120827a8de26e01daace26c1545cb6bdb011719da2  ./source/estore-app/tests/test12.py
+733259625515145a15d1c964472a4a817ba9c82f240dde2b3e785c94e9901e57  ./source/estore-app/tests/test13.py
+401cd41b3c6db73b11818f092c82a72f58f0b59a2b50a8d0d8ed03e229201183  ./source/estore-app/tests/test14.py
 18628eaa81ee5ffa226322de38dc40d8eb4d7dd9e71382d308cb519d4aed068b  ./source/estore-app/tests/test2.py
 ca0a9fa8a21b7cc0808b342db367d505953789b041868cdbd61e370ffd7f35e9  ./source/estore-app/tests/test3.py
 0b4975049bda95821dfa40ca0a8b734a3a7cf8a7502847436f95b24a253f90ac  ./source/estore-app/tests/test4.py

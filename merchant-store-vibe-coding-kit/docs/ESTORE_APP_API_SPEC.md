@@ -1,146 +1,309 @@
 # PingBusiness eStore API specification
- 
-**Specification date:** 2026-07-22  
-**Audience:** storefront, mobile-app, integration, QA, security, and AI code-generation teams  
-**Source basis:** Canonical `app/estore/app.py` and its current `biz-app` contract from `pingbiz-master(26).zip`
+
+**Specification date:** 2026-08-14  
+**Audience:** storefront UI developers, merchant eStore operators, integration teams, QA, security, operations, and AI code-generation teams
 
 ## 1. Purpose and scope
 
-`estore-app` is the merchant-hosted, customer-facing API layer for one configured PingBusiness merchant and one configured PingBusiness store. It has three independent responsibilities:
+`estore-app` is the customer-facing storefront API and checkout gateway for one configured PingBusiness merchant/store deployment. It mediates between customer applications, the ESTORE Keycloak realm, the central `biz-app`, and PaymentAsia checkout workflows.
 
-1. It authenticates and administers the merchant's **customers** against the merchant-operated ESTORE Keycloak realm.
-2. It calls the central `biz-app` on behalf of that one merchant/store using server-side PingBusiness credentials and exposes only the customer-safe eStore surface, including ordinary hosted checkout and single-product recurring subscription enrollment.
-3. It retrieves the merchant-maintained PaymentAsia `payment_networks` allow-list, presents those exact methods to the customer, and requires checkout to use one selected allowed network.
+Each running `estore-app` instance is bound at startup to exactly one configured merchant and one configured store. Public catalog calls are automatically limited to that store, while customer order/payment calls are additionally limited to the authenticated customer identity.
 
-The browser or mobile storefront talks to `estore-app`; it must not call `biz-app` directly.
+The service is responsible for:
+
+- customer registration and ESTORE Keycloak account creation;
+- customer password-grant login, refresh, logout, token introspection, profile reads, profile edits, and password changes;
+- public reads of the configured store, approved products, product files/media, and product inventory;
+- customer-scoped reads of orders, order items, and one-time payments;
+- customer-initiated cancellation of the authenticated customer's recurring subscription order items;
+- one-time PaymentAsia Standard hosted checkout initiation;
+- recurring/subscription PaymentAsia tokenization initiation;
+- forwarding PaymentAsia return/notify payloads to `biz-app` for authoritative verification/finalization;
+- browser-safe checkout return pages and authenticated checkout-status polling;
+- enforcing merchant/store/customer scope before forwarding business-data calls.
+
+`estore-app` does **not** directly own PingBusiness business records. `biz-app` remains authoritative for merchants, stores, products, inventory, customers, intents, orders, order items, payments, recurring schedules, and recurring payment execution records.
 
 ```text
-Customer browser / merchant mobile app
-             |
-             | public calls or ESTORE customer Bearer token
-             v
-      merchant-hosted estore-app
-       |                    |
-       | ESTORE Keycloak    | server-to-server only
-       | customer realm     | X-PingBiz-API-Key
-       |                    | X-PingBiz-Merchant-Identifier
-       |                    | X-PingBiz-Store-Identifier
-       |                    v
-       |                PingBusiness biz-app
-       |                    |
-       |                    v
-       |              PingBusiness database
-       |
-       +---- checkout browser redirect/iframe ---- PaymentAsia
+Customer browser / storefront UI
+        |
+        | ESTORE bearer token for customer-scoped APIs
+        | public access for catalog/media
+        v
++---------------------------+
+|         estore-app        |
+| one merchant + one store  |
++---------------------------+
+     |                 |
+     |                 | ESTORE realm auth/admin
+     |                 v
+     |             Keycloak
+     |
+     | merchant API key + merchant/store identifiers
+     v
++---------------------------+
+|          biz-app          |
++---------------------------+
+     |
+     | selects/persists PaymentAsia test/live environment
+     v
+ PaymentAsia helper service(s)
+     |
+     v
+ PaymentAsia gateway
+
+PaymentAsia return/notify
+        |
+        v
+     estore-app callback routes
+        |
+        v
+     biz-app verification/finalization
 ```
 
-### Non-negotiable trust boundary
+### 1.1 Trust boundary
 
-The following values are **backend secrets/configuration** and must never be embedded in JavaScript, mobile bundles, HTML, source maps, public environment files, or browser requests:
+The browser is not trusted to choose authoritative prices, inventory, merchant/store ownership, payment success, subscription terms, or provider result state.
 
-- `PINGBIZ_MERCHANT_API_KEY`
-- `PINGBIZ_MERCHANT_IDENTIFIER`
-- `PINGBIZ_STORE_IDENTIFIER`
-- `ESTORE_CLIENT_SECRET`
+The following values are server-only secrets and must not be embedded in storefront JavaScript, public mobile bundles, HTML, source maps, or browser storage:
 
-`estore-app` constructs these headers itself for calls to `biz-app`:
+- `ESTORE_CLIENT_SECRET`;
+- `PINGBIZ_MERCHANT_API_KEY`;
+- Keycloak administrative/service-account tokens obtained with the client secret;
+- internal `BIZ_APP_BASE_URL` connectivity details when those expose private infrastructure.
 
-```http
-X-PingBiz-API-Key: <merchant API key>
-X-PingBiz-Merchant-Identifier: <merchant UUID identifier>
-X-PingBiz-Store-Identifier: <store UUID identifier>
-```
+The configured merchant/store identifiers are public scope identifiers rather than secrets, but they do not authorize `biz-app` by themselves. Server-to-server calls also require the merchant API key.
 
-`biz-app` validates all three, verifies that the merchant is active, verifies the API-key hash, verifies that the store belongs to the merchant, and then creates a store-scoped actor with the logical `ESTORE_ROLE`.
+Customer bearer and refresh tokens are customer credentials. They are accepted only by the appropriate customer authentication flows and do not grant merchant-manager or platform-administrator privileges.
+
+`estore-app` never trusts a callback merely because it reached a public callback URL. Callback payloads are forwarded to `biz-app`, which owns PaymentAsia signature verification and authoritative payment/subscription finalization.
 
 ## 2. Base URL and transport
 
-Examples use:
+Examples in this specification use:
 
 ```text
 https://store-api.example.com
 ```
 
-All production traffic should use HTTPS. JSON requests use:
+Production deployments should use HTTPS.
+
+JSON requests normally use:
 
 ```http
 Content-Type: application/json
 Accept: application/json
 ```
 
-Exceptions:
-
-- `POST /checkout` returns auto-submit `text/html` by default or structured JSON when `response_mode` is `json`.
-- `POST /subscribe` returns redirect `text/html`.
-- checkout and tokenization browser-return routes return visible `text/html`; notify routes return JSON.
-- `GET /image/{file_id}` returns image bytes.
-- `GET /download` returns attachment bytes.
-- Payment-gateway callback routes accept form data, and the notify route also accepts JSON.
-
-## 3. Deployment configuration that affects the API
-
-### Required environment variables
-
-| Variable | Purpose |
-|---|---|
-| `PINGBIZ_MERCHANT_IDENTIFIER` | Public UUID-like identifier of the one PingBusiness merchant represented by this deployment. |
-| `PINGBIZ_STORE_IDENTIFIER` | Public UUID-like identifier of the one PingBusiness store represented by this deployment. |
-| `PINGBIZ_MERCHANT_API_KEY` | Secret merchant API key used only by `estore-app` when calling `biz-app`. |
-| `ESTORE_CLIENT_SECRET` | Confidential ESTORE Keycloak client secret used for token introspection, refresh, logout, and customer administration. |
-
-The application resolves the configured merchant and store through `biz-app` during startup. Startup fails if either lookup fails, either lookup is ambiguous, or the store does not belong to the merchant. Payment-network configuration is read dynamically from the current merchant record rather than from an eStore environment default.
-
-### Important optional variables
-
-| Variable | Default | Effect |
-|---|---:|---|
-| `ESTORE_APP_PORT` | `5000` | Flask listening port. |
-| `BIZ_APP_BASE_URL` | `http://biz-app:5000` | Internal PingBusiness API base URL. |
-| `ESTORE_REALM` | `ESTORE` | Customer Keycloak realm. |
-| `ESTORE_CLIENT_ID` | `estore-app` | Confidential ESTORE Keycloak client. |
-| `ESTORE_KC_SERVER_URL` | `KC_SERVER_URL` or `http://k-keycloak:8080/auth/` | Keycloak root used for token and admin URLs. |
-| `ESTORE_TOKEN_URL` | derived | Override for the realm token endpoint. |
-| `ESTORE_LOGOUT_URL` | derived | Override for the realm logout endpoint. |
-| `ESTORE_CUSTOMER_ROLE` | empty | Optional realm role assigned to newly created customers. |
-| `ESTORE_PUBLIC_BASE_URL` | request-derived | Public origin used to construct checkout return and notify URLs. Set this behind reverse proxies unless forwarded host/protocol are guaranteed correct. |
-| `ESTORE_CHECKOUT_LANG` | empty | Optional default PaymentAsia language. |
-| `ESTORE_CHECKOUT_FRAME_ANCESTORS` | empty | Optional CSP `frame-ancestors` value on checkout HTML/return pages. |
-| `ESTORE_TRUST_PROXY_HEADERS` | `true` | Enables `ProxyFix` for forwarded host/protocol/port information. |
-| `DEV_MODE` | `true` | In development, CORS is open. |
-| `ESTORE_ALLOWED_ORIGINS` | empty | Comma-separated production CORS origins when `DEV_MODE=false`. |
-
-## 4. Authentication models
-
-### 4.1 Public storefront access
-
-The payment-network list, catalog, store, media, customer registration, health, login, refresh, logout, and payment callbacks have no customer bearer-token decorator. This does not make PingBusiness credentials public; those credentials remain inside `estore-app`.
-
-### 4.2 Customer bearer authentication
-
-Protected customer routes require:
+Customer-scoped calls send:
 
 ```http
 Authorization: Bearer <ESTORE access token>
 ```
 
-`estore-app` introspects the token against the merchant's ESTORE Keycloak realm and fails closed unless:
+Important non-JSON responses:
 
-- `active` is the literal JSON boolean `true`;
-- `sub` is present and non-empty.
+- `GET /image/{file_id}` relays inline image bytes from `biz-app`;
+- `GET /download?file_id={id}` relays attachment bytes;
+- successful `POST /checkout` returns HTML by default, or JSON when `response_mode = "json"`;
+- successful `POST /subscribe` returns HTML that redirects the browser to PaymentAsia tokenization;
+- browser return routes return HTML status pages;
+- PaymentAsia notify routes return JSON.
 
-Missing, null, false, string, numeric, or other non-boolean `active` values are rejected. The `sub` claim is the authoritative customer identity. The matching PingBusiness customer record is resolved with the configured merchant ID, configured store ID, and `BCustomers.username == token.sub`.
+When run directly, the service listens on `0.0.0.0` and `ESTORE_APP_PORT`, default `5000`.
 
-A login name or email is therefore **not** the PingBusiness customer-mapping key. On registration, `estore-app` creates the Keycloak user and stores the resulting Keycloak user ID in the PingBusiness `username` column.
+HTML checkout/return responses are emitted with:
 
-### 4.3 Payment callbacks
+```http
+Cache-Control: no-store
+```
 
-`/checkout/return/{checkout_id}`, `/checkout/notify/{checkout_id}`, `/recurring/tokenization/return/{checkout_id}`, `/recurring/tokenization/notify/{checkout_id}`, and `/recurring/payment/notify` are intentionally not customer-bearer protected because PaymentAsia must call them. Callback payloads are forwarded through the authenticated server-to-server channel to `biz-app`, which asks the internal payment helper to verify signatures and binds the normalized result to a store-scoped intent, recurring order item, or execution record. Unsigned browser navigation to a return URL is treated only as navigation/status display and is never accepted as proof of payment or tokenization.
+If configured, the service also emits a checkout-page `Content-Security-Policy` `frame-ancestors` directive.
+
+## 3. Deployment configuration that affects the API
+
+### 3.1 Required environment variables
+
+| Variable | Purpose |
+|---|---|
+| `PINGBIZ_MERCHANT_IDENTIFIER` | Public merchant identifier for the merchant owned by this eStore deployment. Startup fails when absent. |
+| `PINGBIZ_STORE_IDENTIFIER` | Public store identifier for the single store owned by this eStore deployment. Startup fails when absent. |
+| `PINGBIZ_MERCHANT_API_KEY` | Raw merchant API key used only server-side for scoped `biz-app` calls. Startup fails when absent. |
+| `ESTORE_CLIENT_SECRET` | Confidential Keycloak client secret for the ESTORE realm. Used for customer token introspection and Keycloak administrative operations. Startup fails when absent. |
+
+### 3.2 Optional environment variables
+
+| Variable | Default | Effect |
+|---|---:|---|
+| `ESTORE_APP_PORT` | `5000` | Flask listen port when run directly. |
+| `DEV_MODE` | `true` | When true, CORS is open. When false, allowed origins come from `ESTORE_ALLOWED_ORIGINS`. |
+| `BIZ_APP_BASE_URL` | `http://biz-app:5000` | Internal central PingBusiness API URL. |
+| `ESTORE_REALM` | `ESTORE` | Customer Keycloak realm. |
+| `ESTORE_CLIENT_ID` | `estore-app` | Confidential ESTORE client used for password grants, refresh, introspection, client credentials, and account administration. |
+| `ESTORE_KC_SERVER_URL` | `KC_SERVER_URL` or `http://k-keycloak:8080/auth/` | Keycloak base URL. Trailing slash is normalized away. |
+| `KC_SERVER_URL` | `http://k-keycloak:8080/auth/` | Fallback Keycloak base URL when `ESTORE_KC_SERVER_URL` is absent. |
+| `ESTORE_CUSTOMER_ROLE` | empty | Optional ESTORE realm role assigned to newly created Keycloak customer accounts. |
+| `ESTORE_PUBLIC_BASE_URL` | empty | Explicit public origin used to construct PaymentAsia return/notify URLs. |
+| `ESTORE_CHECKOUT_LANG` | empty | Default PaymentAsia checkout language forwarded for standard checkout when the request does not provide `lang`. |
+| `ESTORE_CHECKOUT_FRAME_ANCESTORS` | empty | Optional CSP `frame-ancestors` value added to generated checkout/return HTML. |
+| `ESTORE_TRUST_PROXY_HEADERS` | `true` | Enables `ProxyFix` handling of one forwarded hop for client IP, scheme, host, and port. |
+| `ESTORE_ALLOWED_ORIGINS` | empty | Comma-separated CORS origins used only when `DEV_MODE=false`. |
+
+The token/logout/admin URLs are derived from the Keycloak server, realm, and client configuration.
+
+### 3.3 Startup merchant/store resolution
+
+Startup is not lazy. After configuration is loaded, `estore-app` immediately resolves its configured merchant and store through scoped `biz-app` requests:
+
+1. `GET /merchants?identifier=<PINGBIZ_MERCHANT_IDENTIFIER>`;
+2. `GET /stores?identifier=<PINGBIZ_STORE_IDENTIFIER>`;
+3. each lookup must return exactly one object;
+4. the resolved store's `merchant_id` must equal the resolved merchant's `id`.
+
+The resulting integer merchant/store IDs are retained in-process as the canonical eStore scope. Startup fails if the configured identifiers cannot be resolved or do not belong together.
+
+Because `biz-app` scoped eStore authentication requires an active merchant, a suspended merchant cannot be resolved into a functioning eStore deployment through these requests.
+
+### 3.4 Server-to-server `biz-app` authentication
+
+Every ordinary eStore-to-business request carries:
+
+```http
+X-PingBiz-API-Key: <PINGBIZ_MERCHANT_API_KEY>
+X-PingBiz-Merchant-Identifier: <PINGBIZ_MERCHANT_IDENTIFIER>
+X-PingBiz-Store-Identifier: <PINGBIZ_STORE_IDENTIFIER>
+Content-Type: application/json
+```
+
+Binary relays omit `Content-Type` on the outgoing `GET` but use the same three scope/authentication headers.
+
+The browser never receives the merchant API key.
+
+### 3.5 PaymentAsia environment routing
+
+`estore-app` does not connect directly to a PaymentAsia helper and does not choose a test/live provider URL itself. Standard and recurring PaymentAsia operations are submitted to `biz-app`:
+
+- `POST /pa/checkout` for standard checkout launch;
+- `POST /paymentasia/record_payment` for standard payment recording;
+- `POST /recurring/checkout` for recurring tokenization/schedule initiation;
+- `POST /recurring/tokenization/record` for recurring tokenization completion;
+- `POST /recurring/payment/record` for recurring execution callbacks.
+
+The selected PaymentAsia environment is therefore a `biz-app` concern, based on the configured store and persisted payment workflow state. eStore clients do not send a provider-mode selector.
+
+## 4. Authentication and actor model
+
+### 4.1 Public storefront routes
+
+The following routes do not require a customer bearer token:
+
+- `GET /health`
+- `POST /login`
+- `POST /logout`
+- `POST /refresh`
+- `POST /customer` **when creating a customer** (body has no `id`)
+- `GET /payment_networks`
+- `GET /store`
+- `GET /store/{store_id}`
+- `GET /products`
+- `GET /product/{product_id}`
+- `GET /inventories`
+- `GET /file/{file_id}`
+- `GET /image/{file_id}`
+- `GET /download`
+- `GET|POST /checkout/return/{checkout_id}`
+- `POST /checkout/notify/{checkout_id}`
+- `GET|POST /recurring/tokenization/return/{checkout_id}`
+- `POST /recurring/tokenization/notify/{checkout_id}`
+- `POST /recurring/payment/notify`
+
+"Public" does not mean unscoped. Catalog and media routes are still constrained to the single configured store and approved products. Callback routes are provider-facing and are not trusted as successful until downstream verification completes.
+
+### 4.2 Customer bearer-token authentication
+
+Customer-protected routes require an access token issued by the configured ESTORE realm/client:
+
+```http
+Authorization: Bearer <ESTORE access token>
+```
+
+`estore-app` introspects the token with the confidential client and accepts it only when:
+
+- the introspection response contains literal JSON boolean `active: true`;
+- the response includes a non-empty `sub` claim.
+
+False, missing, null, or merely truthy non-boolean `active` values are rejected.
+
+The Keycloak subject (`sub`) is the authoritative customer identity mapping used with `biz-app`. The corresponding `BCustomers.username` value is the Keycloak subject, not the customer's email address.
+
+Protected customer routes include:
+
+- `GET /user`
+- `POST /customer` **when updating an existing customer**
+- `GET /customer`
+- `POST /customer/update_password`
+- `GET /orders`
+- `GET /order/{order_id}`
+- `GET /order_items`
+- `GET /order_item/{order_item_id}`
+- `POST /order_item/{order_item_id}/recurring/cancel`
+- `GET /payments`
+- `GET /payment/{payment_id}`
+- `POST /checkout`
+- `POST /subscribe`
+- `GET /checkout/status/{checkout_id}`
+
+### 4.3 Customer lookup and store scope
+
+For an authenticated customer, `estore-app` resolves the current business profile through:
+
+```text
+GET biz-app /customers
+    ?merchant_id=<configured merchant id>
+    &store_id=<configured store id>
+    &username=<customer token sub>
+```
+
+If no matching profile exists, customer-scoped business routes return:
+
+```json
+{
+  "error": "Customer profile not found for this estore"
+}
+```
+
+with HTTP `404`.
+
+This makes customer identity store-specific: the same external person is not treated as the same business customer across stores merely because an email address matches.
+
+### 4.4 Customer registration identity model
+
+Customer registration creates two linked records:
+
+1. an ESTORE Keycloak user;
+2. a `biz-app` customer row whose `username` stores that Keycloak user's ID/subject.
+
+The signup request's human login `username` and `email` are Keycloak-facing attributes; they are **not** copied into the business customer's `username` field.
+
+When business-customer creation fails after Keycloak user creation, `estore-app` attempts to delete the newly created Keycloak account as compensating rollback.
+
+### 4.5 Provider callback authentication model
+
+PaymentAsia callback routes do not require a customer token because provider servers and browser navigation cannot supply one reliably. They instead rely on the downstream payment workflow:
+
+- standard payment payloads are sent to `biz-app /paymentasia/record_payment`;
+- recurring tokenization payloads are sent to `biz-app /recurring/tokenization/record`;
+- recurring execution payloads are sent to `biz-app /recurring/payment/record`.
+
+`biz-app` and the selected internal PaymentAsia helper perform authoritative signature/result verification and bind the result to trusted intent/schedule state.
+
+A public callback route must therefore never be interpreted by a caller as an unauthenticated API for setting success state.
 
 ## 5. General response and error conventions
 
-### JSON errors
+### 5.1 JSON errors
 
-Errors created directly by `estore-app` normally use:
+Locally generated errors normally use:
 
 ```json
 {
@@ -148,61 +311,209 @@ Errors created directly by `estore-app` normally use:
 }
 ```
 
-Some proxied `biz-app` responses use `message`, `details`, `raw`, or additional fields. A client should obtain an error message in this order:
+Many business-resource responses and errors are directly relayed from `biz-app`, preserving its HTTP status code and JSON body.
 
-1. `error.error`
-2. `error.message`
-3. `message`
-4. `raw`
-5. HTTP status text
+A client should tolerate at least `400`, `401`, `403`, `404`, `409`, `500`, and `502` on applicable routes.
 
-### Empty responses
+### 5.2 Upstream response relay
 
-Some not-found reads from `biz-app` use HTTP `204 No Content`. `estore-app` usually converts scoped validation misses to `404`, but a client should still tolerate a bodyless `204` from proxied operations.
+For most JSON proxy operations:
 
-### Date/time values
+- if `biz-app` returns `204`, eStore returns an empty `204`;
+- otherwise the upstream JSON body and status are relayed;
+- if an internal HTTP response is not JSON, the internal request helper represents it as `{ "raw": "..." }` for JSON proxy purposes.
 
-Database timestamps are returned as JSON strings by Flask. Treat them as opaque date/time strings parseable by the platform rather than relying on one display format.
+Several singular eStore routes convert upstream `204` not-found responses to local `404` before returning them, because eStore scope validators need a concrete missing-resource result.
 
-### Monetary values
+### 5.3 Binary relay
 
-Monetary fields are serialized as fixed-point strings with two decimal places, for example:
+`GET /image/{file_id}` and `GET /download` fetch bytes from `biz-app` and relay the response while removing hop-by-hop headers such as `connection`, `content-length`, `transfer-encoding`, and related transport headers.
+
+The business API remains authoritative for stored MIME type, filename, disposition, and byte content.
+
+### 5.4 HTML checkout responses
+
+Generated checkout and return pages are HTML, not JSON. They always include `Cache-Control: no-store`.
+
+The return page attempts to notify a parent frame and `window.opener` with a browser message of this shape:
+
+```json
+{
+  "type": "PINGBIZ_ESTORE_CHECKOUT_COMPLETE",
+  "success": true,
+  "statusLabel": "successful",
+  "orderId": 123,
+  "order_id": 123,
+  "paymentReference": "provider-reference",
+  "payment_reference": "provider-reference",
+  "checkoutId": "intent-identifier",
+  "checkout_id": "intent-identifier"
+}
+```
+
+The same page may report processing, failed, uncertain, unavailable, or successful state. Storefront code should use authenticated `GET /checkout/status/{checkout_id}` as the durable fallback rather than trusting browser message delivery alone.
+
+### 5.5 Monetary values
+
+Money originates from `biz-app` as fixed-point strings such as:
 
 ```json
 "29.90"
 ```
 
-Do not perform financial calculations with binary floating point. Use decimal arithmetic where correctness matters.
+For checkout, `estore-app` parses amounts with decimal arithmetic. Current product unit price must be greater than zero. Line amount is calculated as:
 
-### Identifiers
+```text
+current product amount * requested quantity
+```
 
-- Numeric `id` fields are internal integer primary keys used by most route paths.
-- `identifier` fields are public UUID-like strings, normally up to 36 characters.
-- A checkout ID is the payment-intent `identifier`, not its integer `id`.
+and quantized to two decimal places.
 
-## 6. Resource schemas
+The browser does not supply authoritative unit prices or totals.
 
-Fields marked “nullable” may be absent or `null`, depending on upstream data and serialization.
+### 5.6 IDs and checkout identifiers
 
-### 6.1 `AuthTokenResponse`
+- Business `id` fields are integer primary keys.
+- Resource `identifier` fields are public strings generated by `biz-app` or supplied under its resource-specific rules.
+- Checkout IDs returned by eStore are `BIntents.identifier` values.
+- Standard/subscription `merchant_reference` values are generated as UUID4 strings before intent creation and become the immutable intent reference.
 
-The login and refresh endpoints return the Keycloak token response. Common fields are:
+### 5.7 Date/time and recurring start dates
+
+Business timestamps are relayed in the JSON representation produced by Flask/`biz-app`.
+
+For subscription checkout, `estore-app` derives `recurring_start_date` as the **next calendar date in `Asia/Hong_Kong`** at checkout construction time. The recurring start date is not accepted from the browser.
+
+### 5.8 Query-field scope override
+
+On customer collection routes, eStore copies query parameters and then overwrites customer/merchant/store filters with trusted values. Caller-controlled values cannot broaden scope.
+
+On catalog routes, eStore forces the configured store and approved product state even when the caller supplies different filters.
+
+## 6. Controlled values and workflow state
+
+### 6.1 Product storefront visibility
+
+Only product state:
+
+```text
+A = Approved/published
+```
+
+is visible through eStore catalog, product, file, media, inventory, and checkout workflows.
+
+Requests that explicitly ask `/products` for `D`, `S`, or `R` are rejected with `403`. Direct product/file/media reads also validate that the parent product is currently approved.
+
+`review_notes` are not exposed to eStore actors by `biz-app` and therefore do not appear in storefront product payloads.
+
+### 6.2 PaymentAsia Standard payment networks
+
+Supported network names are case-sensitive and exactly:
+
+- `Alipay`
+- `Wechat`
+- `CUP`
+- `CreditCard`
+- `Fps`
+- `Octopus`
+- `PayMe`
+
+`GET /payment_networks` returns the subset currently enabled on the configured merchant.
+
+`POST /checkout` requires one selected network, and it must be in that current merchant list. The browser cannot request `UserDefine` or any unsupported/unconfigured network.
+
+Subscription tokenization requires `CreditCard` to be enabled and does not accept another network choice.
+
+### 6.3 Ordinary versus subscription products
+
+A product is treated as ordinary when all three recurring fields are null/empty:
+
+- `recurring_frequency`
+- `recurring_intervals`
+- `recurring_total_execution_times`
+
+A product is treated as a subscription product only when all three are present and valid.
+
+Supported frequencies recognized by eStore are:
+
+- `WEEKLY`
+- `MONTHLY`
+- `YEARLY`
+
+`recurring_intervals` and `recurring_total_execution_times` must be positive integers.
+
+Standard cart checkout rejects subscription products. `POST /subscribe` rejects ordinary products. Subscription checkout supports exactly one product ID plus quantity.
+
+### 6.4 Intent status
+
+Checkout intents are created with status `C`.
+
+The current trusted intent status set used by the PingBusiness checkout workflow is:
+
+| Code | Storefront meaning |
+|---|---|
+| `C` | Created; checkout has not yet reached a terminal result. |
+| `R` | Redirected/processing; explicitly non-terminal for storefront polling. |
+| `S` | Successful; terminal. |
+| `F` | Failed; terminal. |
+| `U` | Uncertain/reconciliation required; terminal for the immediate browser polling cycle but not a successful purchase. |
+
+`GET /checkout/status/{checkout_id}` reports `complete=true` only for `S`, `F`, or `U`.
+
+### 6.5 Order-item delivery state
+
+Customer order-item reads include:
+
+| Value | Meaning |
+|---|---|
+| `null` | Not marked delivered. |
+| `D` | Delivered. |
+
+If an upstream order-item payload omits the field, eStore inserts `state: null` so storefront clients receive a stable shape.
+
+There is no customer-facing eStore route to change delivery state.
+
+### 6.6 Recurring order-item fields
+
+A successfully created subscription order item may contain:
+
+- `recurring_start_date`;
+- `recurring_frequency`;
+- `recurring_intervals`;
+- `recurring_total_execution_times`;
+- `recurring_merchant_reference`;
+- `recurring_status`;
+- sanitized `subscription_details`.
+
+Sensitive tokenization/provider-token/signature keys are removed by the authoritative `biz-app` serializer before eStore receives the order item.
+
+`estore-app` exposes recurring state through ordinary order/order-item reads and checkout status, and allows an authenticated customer to cancel a recurring order item that belongs to that customer through `POST /order_item/{order_item_id}/recurring/cancel`. It does not expose customer routes for recurring adjustment or manual reconciliation.
+
+## 7. Resource schemas
+
+Fields may be `null` where indicated by the underlying business record.
+
+### 7.1 `AuthTokenResponse`
+
+`POST /login` and successful `POST /refresh` return the ESTORE Keycloak token JSON. Common fields include:
 
 | Field | Type | Notes |
 |---|---|---|
-| `access_token` | string | Customer bearer token. |
-| `refresh_token` | string | May be absent depending on realm/client policy. |
-| `expires_in` | integer | Access-token lifetime in seconds. |
-| `refresh_expires_in` | integer | Refresh-token lifetime in seconds. |
-| `token_type` | string | Normally `Bearer`. |
-| `scope` | string | Realm/client dependent. |
-| other fields | any | Keycloak may add session, policy, or identity fields. |
+| `access_token` | string | Bearer token for customer-scoped eStore APIs. |
+| `refresh_token` | string, optional | Used by `/refresh` and `/logout`. |
+| `expires_in` | integer, optional | Access-token lifetime. |
+| `refresh_expires_in` | integer, optional | Refresh-token lifetime. |
+| `token_type` | string, optional | Normally `Bearer`. |
+| `scope` | string, optional | Keycloak policy dependent. |
+| other fields | any | Keycloak may return session/policy fields. |
 
-### 6.2 `CurrentUser`
+### 7.2 `CurrentUser`
+
+Returned by `GET /user`:
 
 ```json
 {
-  "sub": "a-keycloak-user-id",
+  "sub": "keycloak-subject",
   "username": "customer@example.com",
   "email": "customer@example.com",
   "first_name": "Ada",
@@ -212,149 +523,163 @@ The login and refresh endpoints return the Keycloak token response. Common field
 }
 ```
 
-### 6.3 `Customer`
+| Field | Type | Notes |
+|---|---|---|
+| `sub` | string | Authoritative ESTORE Keycloak subject. |
+| `username` | string | Preferred username/username/email claim fallback, then subject. |
+| `email` | string/null | Token email, falling back to business customer email. |
+| `first_name` | string | Business profile value. |
+| `last_name` | string | Business profile value. |
+| `customer_id` | integer | Current store-local business customer ID. |
+| `customer` | `Customer` | Complete business profile. |
+
+### 7.3 `Customer`
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | integer | PingBusiness customer ID. |
-| `identifier` | string | Public customer identifier. |
-| `merchant_id` | integer | Deployment-scoped merchant ID. Read-only to the storefront. |
-| `store_id` | integer | Deployment-scoped store ID. Read-only to the storefront. |
-| `first_name` | string | Required on creation. |
-| `last_name` | string | Required on creation. |
-| `details` | string, nullable | Arbitrary text; may contain JSON but is not guaranteed to. |
-| `shipping_address` | string, nullable | Free-form. |
-| `billing_address` | string, nullable | Free-form. |
-| `email` | string, nullable | Also synchronized to Keycloak on update. |
-| `phone` | string, nullable | Database limit is 16 characters. |
-| `username` | string, nullable | In eStore-created records this is the Keycloak user ID, not the login name. |
-| `created_at` | date/time string | Read-only. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `id` | integer | Business customer ID. |
+| `identifier` | string | Server-generated public identifier. |
+| `merchant_id` | integer | Configured eStore merchant. |
+| `store_id` | integer | Configured eStore store. |
+| `first_name` | string | Required. |
+| `last_name` | string | Required. |
+| `details` | string/null | Free-form profile data. |
+| `shipping_address` | string/null | Shipping address. |
+| `billing_address` | string/null | Billing address; required during eStore signup. |
+| `email` | string/null | Normalized validated signup/profile email. |
+| `phone` | string/null | Phone; required during eStore signup. |
+| `username` | string/null | ESTORE Keycloak subject mapping, not human login name. |
+| `updated_at` | date/time/null | Audit value. |
+| `created_at` | date/time | Audit value. |
 
-### 6.4 `Store`
+### 7.4 `Store`
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | integer | Configured store numeric ID. |
-| `identifier` | string | Configured store UUID-like identifier. |
-| `merchant_id` | integer | Owning merchant. |
+| `id` | integer | Configured store ID. |
+| `identifier` | string | Public store identifier. |
+| `merchant_id` | integer | Configured merchant ID. |
 | `name` | string | Store name. |
-| `details` | string, nullable | Store description/configuration text. |
-| `mode` | string | `T` = test; `L` = live. |
-| `created_at` | date/time string | Read-only. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `details` | string/null | Store details. |
+| `mode` | string | `T` or `L`; used downstream by PingBusiness payment routing. |
+| `updated_at` | date/time/null | Audit value. |
+| `created_at` | date/time | Audit value. |
 
-### 6.5 `Product`
+### 7.5 `Product`
 
-Only approved products are exposed.
+Storefront product reads include the business product fields plus an eStore-added `files` array.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | integer | Product numeric ID. |
-| `identifier` | string, nullable | Public product identifier/SKU-like value. |
-| `store_id` | integer | Always the configured store. |
+| `id` | integer | Product ID. |
+| `identifier` | string/null | Product public identifier/SKU-like value. |
+| `store_id` | integer | Always the configured eStore store. |
 | `name` | string | Product name. |
-| `details` | string, nullable | Arbitrary product details. |
-| `description` | string, nullable | Product description. |
+| `details` | string/null | Free-form details. |
+| `description` | string/null | Product description. |
 | `amount` | decimal string | Current unit amount. |
-| `currency` | string | Three uppercase letters. |
-| `recurring_frequency` | string, nullable | `WEEKLY`, `MONTHLY`, or `YEARLY`; null for an ordinary product. |
-| `recurring_intervals` | integer, nullable | Positive schedule interval count. |
-| `recurring_total_execution_times` | integer, nullable | Positive execution count, subject to backend frequency limits. |
-| `state` | string | Always `A` through the eStore API. |
-| `files` | `ProductFile[]` | Added by `estore-app` to product list and detail responses. |
-| `created_at` | date/time string | Read-only. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `currency` | string | Three-letter currency from business data. |
+| `recurring_frequency` | string/null | `WEEKLY`, `MONTHLY`, `YEARLY`, or null for ordinary products. |
+| `recurring_intervals` | integer/null | Interval multiplier for recurring products. |
+| `recurring_total_execution_times` | integer/null | Finite scheduled execution count. |
+| `state` | string | Always `A` through valid eStore product reads. |
+| `updated_at` | date/time/null | Audit value. |
+| `created_at` | date/time | Audit value. |
+| `files` | `ProductFile[]` | Added by eStore for `/products` and `/product/{id}`. |
 
-`review_notes` is deliberately excluded for the eStore actor.
+`review_notes` are intentionally absent from eStore product responses.
 
-### 6.6 `ProductFile`
+### 7.6 `ProductFile`
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | integer | File ID used by image/download routes. |
+| `id` | integer | File metadata ID. |
 | `merchant_id` | integer | Owning merchant. |
-| `product_id` | integer | Parent product. |
+| `product_id` | integer | Approved parent product. |
 | `name` | string | Download filename. |
-| `description` | string, nullable | The reference UI recognizes `__PINGBIZ_MAIN_TITLE_IMAGE__` as the preferred primary image marker. |
-| `location` | string | Server storage location metadata. Do not construct a public URL from it. |
-| `size` | integer | Bytes. |
-| `mime_type` | string | Used to identify images and response content type. |
-| `created_at` | date/time string | Read-only. |
+| `description` | string/null | File metadata. |
+| `location` | string | Server-side storage-relative value; do not construct a public URL from it. |
+| `size` | integer | Byte size. |
+| `mime_type` | string/null | Stored MIME type. |
+| `created_at` | date/time | Audit value. |
 
-Use `/image/{id}` or `/download?file_id={id}`. Never expose or concatenate `location` into a client URL.
+Use `/image/{file_id}` or `/download?file_id={file_id}` to obtain bytes.
 
-### 6.7 `Inventory`
+### 7.7 `Inventory`
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | integer | Inventory-row ID. |
-| `product_id` | integer | Parent product. |
-| `quantity` | integer | Quantity at this location. It can be zero or negative; calculate availability using the sum of all returned rows. |
-| `location` | string | Empty string represents the default location. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `product_id` | integer | Approved product. |
+| `quantity` | integer | Quantity for one location row. |
+| `location` | string | Inventory location. |
+| `updated_at` | date/time/null | Audit value. |
 
-An empty array means total availability is zero.
+`GET /inventories` returns all rows for one product. Storefront availability is the sum of the returned `quantity` values. An empty list means availability `0`.
 
-### 6.8 `Order`
+### 7.8 `Order`
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | integer | Order ID. |
-| `identifier` | string | Public order identifier. |
-| `merchant_id` | integer | Deployment merchant. |
-| `customer_id` | integer | Current customer. |
-| `store_id` | integer | Deployment store. |
-| `status` | string | Single-letter status. Known storefront labels include `N`, `P`, `C`, `R`, `S`, `F`, `U`. |
-| `currency` | string | Three uppercase letters. |
-| `subtotal_amount` | decimal string | Checkout subtotal. |
-| `total_amount` | decimal string | Checkout total. |
-| `details` | string, nullable | Server-generated/free-form metadata. |
-| `created_at` | date/time string | Read-only. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `identifier` | string | Server-generated public identifier. |
+| `merchant_id` | integer | Configured merchant. |
+| `customer_id` | integer | Authenticated customer's business ID. |
+| `store_id` | integer | Configured store. |
+| `status` | string | Business order status. `S` is successful in checkout workflows. |
+| `currency` | string | Three-letter currency. |
+| `subtotal_amount` | decimal string | Subtotal. |
+| `total_amount` | decimal string | Total. |
+| `details` | string/null | Business/provider workflow details. |
+| `updated_at` | date/time/null | Audit value. |
+| `created_at` | date/time | Audit value. |
 
-Orders are created only after verified successful payment and are read-only to storefront customers.
-
-### 6.9 `OrderItem`
+### 7.9 `OrderItem`
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | integer | Order-item ID. |
-| `order_id` | integer | Parent order. |
-| `order_status` | string, nullable | Parent order status added by `biz-app`. |
-| `product_id` | integer | Product sold. |
-| `quantity` | integer | Positive quantity. |
-| `unit_amount` | decimal string | Checkout-time unit amount. |
-| `amount` | decimal string | Checkout-time line total. |
-| `recurring_start_date` | ISO-8601 date string, nullable | Subscription start date. |
-| `recurring_frequency` | string, nullable | Copied subscription frequency. |
-| `recurring_intervals` | integer, nullable | Copied subscription interval. |
-| `recurring_total_execution_times` | integer, nullable | Copied execution count. |
-| `recurring_merchant_reference` | string, nullable | Provider schedule reference. |
-| `recurring_status` | string, nullable | `PENDING`, `ACTIVE`, `CANCELLED`, `COMPLETED`, `ERROR`, or `UNKNOWN`. |
-| `subscription_details` | object, nullable | Sanitized subscription audit data; raw tokenization/card/signature secrets are excluded by `biz-app`. |
-| `state` | string or null | `D` = delivered; `null` = not marked delivered. `estore-app` ensures this key exists. |
-| `details` | string, nullable | Server metadata. |
-| `created_at` | date/time string | Read-only. |
-| `updated_at` | date/time string, nullable | Read-only. |
+| `order_id` | integer | Parent customer order. |
+| `order_status` | string/null | Current parent order status. |
+| `product_id` | integer | Purchased product. |
+| `quantity` | integer | Purchased quantity. |
+| `unit_amount` | decimal string | Immutable checkout unit amount. |
+| `amount` | decimal string | Purchased line amount. |
+| `recurring_start_date` | date/null | Subscription start date. |
+| `recurring_frequency` | string/null | Subscription frequency. |
+| `recurring_intervals` | integer/null | Subscription interval multiplier. |
+| `recurring_total_execution_times` | integer/null | Finite execution count. |
+| `recurring_merchant_reference` | string/null | Active recurring-schedule reference when applicable. |
+| `recurring_status` | string/null | Recurring schedule lifecycle status when applicable. |
+| `subscription_details` | object/null | Sanitized subscription metadata. Provider token/signature secrets are removed. |
+| `state` | string/null | Delivery state; `D` means delivered. |
+| `details` | string/null | Business details. |
+| `updated_at` | date/time/null | Audit value. |
+| `created_at` | date/time | Audit value. |
 
-### 6.10 `Payment`
+### 7.10 `Payment`
+
+One-time payment records are returned through `/payments` and `/payment/{id}`.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | integer | Payment ID. |
 | `identifier` | string | Public payment identifier. |
-| `order_id` | integer | Parent order. |
-| `merchant_id` | integer | Deployment merchant. |
-| `store_id` | integer | Deployment store. |
-| `currency` | string | Three uppercase letters. |
-| `amount` | decimal string | Verified amount. |
-| `status` | string | Single-letter payment status; successful records use `S`. |
-| `reference` | string, nullable | Provider/payment reference. |
-| `details` | string, nullable | Provider metadata, normally JSON text. |
-| `created_at` | date/time string | Read-only. |
+| `order_id` | integer | Parent customer order. |
+| `merchant_id` | integer | Configured merchant. |
+| `store_id` | integer | Configured store. |
+| `currency` | string | Payment currency. |
+| `amount` | decimal string | Payment amount. |
+| `status` | string | Business/provider result status. Successful PaymentAsia finalization uses `S`. |
+| `reference` | string/null | Provider payment/request reference. |
+| `details` | string/null | Provider metadata stored by business workflow. |
+| `created_at` | date/time | Audit value. |
 
-### 6.11 `PaymentNetworkConfiguration`
+Subscription schedule acceptance does not create a one-time `Payment` row merely for tokenization/schedule creation.
+
+### 7.11 `PaymentNetworkConfiguration`
+
+Returned by `GET /payment_networks`:
 
 ```json
 {
@@ -363,74 +688,93 @@ Orders are created only after verified successful payment and are read-only to s
 }
 ```
 
-`payment_networks` is a non-empty JSON array derived from the merchant record's canonical comma-separated `TEXT` value. Valid exact values are `Alipay`, `Wechat`, `CUP`, `CreditCard`, `Fps`, `Octopus`, and `PayMe`. `UserDefine` is not returned because the merchant's exact allowed subset must be enforced.
+### 7.12 `CheckoutLaunch`
 
-For `Octopus`, the trusted checkout total must be an exact multiple of HKD 0.10. The eStore derives the total normally, and `biz-app` is the authoritative guard that rejects incompatible totals before a signed launch form is issued.
-
-### 6.12 `CheckoutStatus`
+Returned by `POST /checkout` when `response_mode = "json"`:
 
 ```json
 {
-  "checkout_id": "intent-uuid",
+  "checkout_id": "intent-identifier",
+  "checkout_reference": "merchant-reference",
+  "action_url": "https://payment-gateway.example/hosted-payment",
+  "fields": {
+    "merchant_reference": "merchant-reference",
+    "currency": "HKD",
+    "amount": "50.00",
+    "sign": "..."
+  }
+}
+```
+
+`fields` is provider-driven and may contain additional PaymentAsia hosted-form fields. A popup client should create a real HTML form targeting `action_url` and submit the returned fields; it must not change authoritative values.
+
+### 7.13 `CheckoutStatus`
+
+Returned by authenticated `GET /checkout/status/{checkout_id}`:
+
+```json
+{
+  "checkout_id": "intent-identifier",
   "complete": true,
   "success": true,
   "status": "S",
   "order_id": 123,
-  "payment_reference": "provider-reference-or-checkout-reference",
-  "checkout_reference": "storefront-merchant-reference",
+  "payment_reference": "provider-request-reference",
+  "checkout_reference": "merchant-reference",
   "paymentasia_status": "1",
   "recurring_checkout_status": null
 }
 ```
 
-`complete` is true only for intent states `S`, `F`, or `U`. State `R` means redirected/processing and is not terminal. `recurring_checkout_status` surfaces the detailed recurring workflow state when the intent is a subscription.
+For subscription checkout, `recurring_checkout_status` may contain trusted recurring workflow state such as schedule-creation processing state.
 
-## 7. Endpoint summary
 
-| Method | Path | Customer auth | Response |
-|---|---|---:|---|
-| `GET` | `/health` | No | JSON |
-| `POST` | `/login` | No | Keycloak token JSON |
-| `POST` | `/logout` | No bearer; refresh token in body | JSON |
-| `POST` | `/refresh` | No bearer; refresh token in body | Keycloak token JSON |
-| `GET` | `/user` | Yes | `CurrentUser` |
-| `POST` | `/customer` | Create: no; update: yes | JSON |
-| `GET` | `/customer` | Yes | `Customer` |
-| `POST` | `/customer/update_password` | Yes | JSON |
-| `GET` | `/payment_networks` | No | `PaymentNetworkConfiguration` |
-| `GET` | `/store` | No | `Store` |
-| `GET` | `/store/{store_id}` | No | `Store` |
-| `GET` | `/products` | No | `Product[]` |
-| `GET` | `/product/{product_id}` | No | `Product` |
-| `GET` | `/inventories` | No | `Inventory[]` |
-| `GET` | `/file/{file_id}` | No | `ProductFile` |
-| `GET` | `/image/{file_id}` | No | Image bytes |
-| `GET` | `/download` | No | Attachment bytes |
-| `GET` | `/orders` | Yes | `Order[]` |
-| `GET` | `/order/{order_id}` | Yes | `Order` |
-| `GET` | `/order_items` | Yes | `OrderItem[]` |
-| `GET` | `/order_item/{order_item_id}` | Yes | `OrderItem` |
-| `POST` | `/order_item/{order_item_id}/recurring/cancel` | Yes | `OrderItem` |
-| `GET` | `/payments` | Yes | one-time `Payment[]` |
-| `GET` | `/payment/{payment_id}` | Yes | one-time `Payment` |
-| `POST` | `/checkout` | Yes | HTML or launch JSON |
-| `POST` | `/subscribe` | Yes | Tokenization redirect HTML |
-| `GET` | `/checkout/status/{checkout_id}` | Yes | `CheckoutStatus` |
-| `GET`, `POST` | `/checkout/return/{checkout_id}` | Payment/browser callback | Visible status HTML |
-| `POST` | `/checkout/notify/{checkout_id}` | Payment callback | JSON |
-| `GET`, `POST` | `/recurring/tokenization/return/{checkout_id}` | Browser/tokenization callback | Visible status HTML |
-| `POST` | `/recurring/tokenization/notify/{checkout_id}` | Tokenization callback | JSON |
-| `POST` | `/recurring/payment/notify` | Recurring payment callback | JSON |
+## 8. Endpoint summary
 
-## 8. Endpoint reference
+| Method | Path | Authentication | Purpose / response |
+|---|---|---|---|
+| `GET` | `/health` | Public | Process liveness JSON. |
+| `POST` | `/login` | Public | ESTORE password-grant token response. |
+| `POST` | `/logout` | Public; refresh token in body | Revokes/logs out refresh session. |
+| `POST` | `/refresh` | Public; refresh token in body | Refreshes ESTORE tokens. |
+| `GET` | `/user` | Customer bearer | Current customer identity/profile summary. |
+| `POST` | `/customer` | Public for create; bearer for update | Create customer login/profile or update own profile. |
+| `GET` | `/customer` | Customer bearer | Current customer's `Customer`. |
+| `POST` | `/customer/update_password` | Customer bearer | Change own ESTORE password after current-password verification. |
+| `GET` | `/payment_networks` | Public | Current merchant PaymentAsia network allow-list. |
+| `GET` | `/store` | Public | Configured `Store`. |
+| `GET` | `/store/{store_id}` | Public | Store read, but only configured store ID is allowed. |
+| `GET` | `/products` | Public | Approved configured-store `Product[]`, each with `files`. |
+| `GET` | `/product/{product_id}` | Public | One approved configured-store `Product` with `files`. |
+| `GET` | `/inventories` | Public | Inventory rows for one approved product. |
+| `GET` | `/file/{file_id}` | Public | Metadata for a file of an approved configured-store product. |
+| `GET` | `/image/{file_id}` | Public | Inline image bytes. |
+| `GET` | `/download` | Public | Attachment bytes. |
+| `GET` | `/orders` | Customer bearer | Current customer's scoped `Order[]`. |
+| `GET` | `/order/{order_id}` | Customer bearer | One current-customer `Order`. |
+| `GET` | `/order_items` | Customer bearer | Current customer's scoped `OrderItem[]`. |
+| `GET` | `/order_item/{order_item_id}` | Customer bearer | One current-customer `OrderItem`. |
+| `POST` | `/order_item/{order_item_id}/recurring/cancel` | Customer bearer | Cancel one recurring order item owned by the current customer. |
+| `GET` | `/payments` | Customer bearer | Current customer's scoped one-time `Payment[]`. |
+| `GET` | `/payment/{payment_id}` | Customer bearer | One current-customer `Payment`. |
+| `POST` | `/checkout` | Customer bearer | Start standard hosted checkout for ordinary products. |
+| `POST` | `/subscribe` | Customer bearer | Start PaymentAsia tokenization for one subscription product. |
+| `GET` | `/checkout/status/{checkout_id}` | Customer bearer | Durable customer-scoped standard/subscription checkout state. |
+| `GET`, `POST` | `/checkout/return/{checkout_id}` | Public gateway/browser return | Browser-safe standard checkout return page. |
+| `POST` | `/checkout/notify/{checkout_id}` | Public gateway callback | Strict standard payment finalization forwarding. |
+| `GET`, `POST` | `/recurring/tokenization/return/{checkout_id}` | Public gateway/browser return | Subscription tokenization browser return / signed result. |
+| `POST` | `/recurring/tokenization/notify/{checkout_id}` | Public gateway callback | Strict subscription tokenization/schedule result forwarding. |
+| `POST` | `/recurring/payment/notify` | Public gateway callback | Strict recurring execution result forwarding. |
 
-### 8.1 Health
+## 9. Endpoint reference
+
+### 9.1 Health and authentication
 
 #### `GET /health`
 
-Returns service liveness.
+Process-liveness endpoint. It does not authenticate a customer and does not perform explicit dependency health checks against `biz-app`, Keycloak, or PaymentAsia.
 
-**Success — `200`**
+**Success - `200`**
 
 ```json
 {
@@ -441,11 +785,9 @@ Returns service liveness.
 
 ---
 
-### 8.2 Authentication
-
 #### `POST /login`
 
-Convenience password-grant login against the merchant's ESTORE Keycloak realm. Authorization Code + PKCE may be used directly with Keycloak by a production browser client, but the resulting ESTORE token is still sent to protected `estore-app` routes.
+Convenience ESTORE Keycloak Resource Owner Password Credentials login. Browser applications may instead use an appropriate direct Keycloak browser flow and then send the resulting ESTORE access token to protected eStore routes.
 
 **Body**
 
@@ -456,16 +798,29 @@ Convenience password-grant login against the merchant's ESTORE Keycloak realm. A
 }
 ```
 
-| Field | Required | Notes |
-|---|---:|---|
-| `username` | Yes | Keycloak username; the reference UI normalizes registration names to lowercase. |
-| `password` | Yes | Customer password. |
+Both fields are required.
 
-**Success — normally `200`**: `AuthTokenResponse` from Keycloak.  
-**Errors:** `400` when a field is missing; otherwise the Keycloak status and body are relayed.
+The request is forwarded to the configured ESTORE token endpoint with:
+
+- `grant_type=password`;
+- configured `ESTORE_CLIENT_ID`;
+- confidential `ESTORE_CLIENT_SECRET`;
+- supplied username and password.
+
+**Success - normally `200`**: Keycloak token JSON.
+
+**Errors**
+
+- `400` missing username or password;
+- otherwise the Keycloak token endpoint's HTTP status and JSON body are relayed;
+- an unhandled upstream connectivity failure can surface as a server error.
+
+---
 
 #### `POST /refresh`
 
+Refreshes an ESTORE Keycloak token set.
+
 **Body**
 
 ```json
@@ -474,11 +829,19 @@ Convenience password-grant login against the merchant's ESTORE Keycloak realm. A
 }
 ```
 
-**Success — `200`**: refreshed Keycloak token response.  
-**Errors:** `400` missing token; `401` refresh failure or upstream request failure.
+**Success - `200`**: refreshed Keycloak token JSON.
+
+**Errors**
+
+- `400` missing `refresh_token`;
+- `401` unsuccessful refresh or token-endpoint request failure.
+
+---
 
 #### `POST /logout`
 
+Ends/revokes the refresh-token session through the ESTORE Keycloak logout endpoint.
+
 **Body**
 
 ```json
@@ -487,7 +850,9 @@ Convenience password-grant login against the merchant's ESTORE Keycloak realm. A
 }
 ```
 
-**Success — `200`**
+If Keycloak returns `204`, eStore translates it to:
+
+**Success - `200`**
 
 ```json
 {
@@ -495,101 +860,171 @@ Convenience password-grant login against the merchant's ESTORE Keycloak realm. A
 }
 ```
 
-**Errors:** `400` missing token; `401` unsuccessful Keycloak logout.
+**Errors**
+
+- `400` missing `refresh_token`;
+- `401` any non-`204` Keycloak response or request failure.
+
+### 9.2 Current customer identity and profile
 
 #### `GET /user`
 
-Requires customer bearer authentication. Returns token identity plus the matching customer profile.
+Customer bearer token required.
 
-**Optional query**
+Returns a combined ESTORE-token and business-customer summary.
+
+**Optional query parameter**
 
 | Parameter | Type | Behavior |
 |---|---|---|
-| `username` | string | Optional login name. If both this value and a username/email claim exist in the token, they must match after lowercase/trim normalization. |
+| `username` | string | Normalized to lowercase/trimmed. If both the query value and a username-like token claim exist, they must match. |
 
-**Success — `200`**: `CurrentUser`.  
-**Errors:** `401` token error; `403` attempted cross-user read; `404` no PingBusiness customer profile for the token `sub`.
+The token username is selected from:
+
+1. `preferred_username`;
+2. `username`;
+3. `email`.
+
+The current `Customer` is resolved from the token subject in the configured store.
+
+**Success - `200`**: `CurrentUser`.
+
+**Errors**
+
+- `401` missing/invalid customer token;
+- `403` supplied username identifies another token user;
+- `404` no current customer profile.
 
 ---
 
-### 8.3 Customer account
+#### `POST /customer` - create
 
-#### `POST /customer` — create
+Public customer-registration route when the body does **not** contain `id`.
 
-Creation mode is selected when the body does **not** contain `id`. The route creates the Keycloak user first, then creates the store-scoped PingBusiness customer. If the business-record creation fails, it attempts to delete the new Keycloak user.
+It creates the ESTORE Keycloak account first and then creates the mapped business `Customer` through `biz-app`.
 
-**Body**
+**Typical body**
 
 ```json
 {
   "username": "customer@example.com",
+  "password": "customer-password",
   "email": "customer@example.com",
-  "password": "at-least-an-appropriate-realm-password",
   "first_name": "Ada",
   "last_name": "Lovelace",
+  "billing_address": "1 Example Street",
+  "shipping_address": "1 Example Street",
   "phone": "+85212345678",
-  "shipping_address": "...",
-  "billing_address": "...",
-  "details": "Optional text or JSON string"
+  "details": "Optional profile details"
 }
 ```
 
-| Field | Required | Notes |
-|---|---:|---|
-| `username` or `email` | Yes | Login name is normalized to lowercase. If `username` is omitted, `email` is used. |
-| `password` | Yes | No local minimum is enforced here; Keycloak policy may impose one. The reference UI requires 8 characters. |
-| `first_name` | Yes | Required before the business record is created. |
-| `last_name` | Yes | Required before the business record is created. |
-| `email` | No | Defaults to the normalized username. |
-| other profile fields | No | Passed into the customer profile. |
+**Required behavior**
 
-Merchant ID, store ID, business username, identifiers, and timestamps are derived server-side.
+- `billing_address` must be a non-empty string and is trimmed;
+- `phone` must be a non-empty string and is trimmed;
+- either `username` or `email` must be present to derive the Keycloak username;
+- `password` is required;
+- the effective email (`email`, or `username` when email is absent) must pass eStore email validation;
+- `first_name` is required;
+- `last_name` is required.
 
-**Success — normally `201`**
+Keycloak username is normalized to lowercase/trimmed. The stored Keycloak email is normalized to lowercase.
+
+Email validation includes:
+
+- total maximum length `254`;
+- local-part maximum length `64`;
+- domain maximum length `253`;
+- dot-separated local atoms with no empty/leading/trailing dot;
+- syntactically valid DNS-style domain labels;
+- final alphabetic TLD or punycode IDN TLD.
+
+If the normalized Keycloak username already exists, registration returns `409`.
+
+The business customer is created with trusted ownership values:
+
+```text
+merchant_id = configured eStore merchant ID
+store_id    = configured eStore store ID
+username    = newly created Keycloak user ID/subject
+```
+
+The caller cannot choose those business-scope values on the create path.
+
+If `ESTORE_CUSTOMER_ROLE` is configured, the created Keycloak user is assigned that realm role.
+
+**Success - normally `201`**
 
 ```json
 {
   "id": 42,
-  "keycloak_user_id": "6ff8..."
+  "keycloak_user_id": "keycloak-subject"
 }
 ```
 
-**Errors:** `400` validation; `409` login already exists; `500` Keycloak/admin failure; proxied business errors.
+The status code mirrors successful `biz-app` customer creation.
 
-> Production deployments should put registration rate limiting, abuse controls, email verification, password policy, and bot protection in front of this public route. Those controls are not implemented by the canonical route itself.
+**Errors**
 
-#### `POST /customer` — update
+- `400` missing required business/customer-login data or invalid email;
+- `409` duplicate Keycloak customer username;
+- `500` Keycloak customer creation failure;
+- `biz-app` create errors are relayed after best-effort deletion of the newly created Keycloak user.
 
-Update mode is selected when `id` is present. A bearer token is required, and `id` must equal the customer mapped from the token `sub`.
+If `first_name` or `last_name` is discovered missing after Keycloak account creation, eStore deletes the new Keycloak user before returning `400`.
 
-**Allowed body fields**
+---
+
+#### `POST /customer` - update
+
+Authenticated update mode is selected when the body contains `id`.
+
+The route explicitly introspects the supplied bearer token and resolves the caller's current store-local customer before accepting the ID.
+
+**Typical body**
 
 ```json
 {
   "id": 42,
   "first_name": "Ada",
-  "last_name": "Lovelace",
-  "details": "...",
-  "shipping_address": "...",
-  "billing_address": "...",
-  "email": "new@example.com",
+  "last_name": "Byron",
+  "details": "Updated profile",
+  "shipping_address": "2 Example Street",
+  "billing_address": "2 Example Street",
+  "email": "ada@example.com",
   "phone": "+85212345678"
 }
 ```
 
-Forbidden fields include `identifier`, `merchant_id`, `store_id`, `username`, `created_at`, and `updated_at`.
+The supplied `id` must equal the current customer's own business ID.
 
-**Success — `200`**
+Writable fields are:
 
-Usually:
+- `first_name`;
+- `last_name`;
+- `details`;
+- `shipping_address`;
+- `billing_address`;
+- `email`;
+- `phone`.
 
-```json
-{
-  "message": "Customer updated successfully"
-}
-```
+The following are rejected if present:
 
-If the PingBusiness update succeeds but Keycloak profile synchronization fails:
+- `identifier`;
+- `merchant_id`;
+- `store_id`;
+- `username`;
+- `created_at`;
+- `updated_at`.
+
+`email`, when supplied, is trimmed, lowercased, and must pass the same email validator used at signup.
+
+After a successful business profile update, eStore synchronizes `email`, `first_name`, and `last_name` to the Keycloak user when those fields were present in the request.
+
+**Success - normally `200`**: `biz-app` customer-update JSON.
+
+If the business update succeeds but Keycloak profile synchronization fails, eStore deliberately returns:
 
 ```json
 {
@@ -597,29 +1032,61 @@ If the PingBusiness update succeeds but Keycloak profile synchronization fails:
 }
 ```
 
-The caller should re-read `GET /customer` rather than assume the update response is a complete customer object.
+with `200`, because the business profile was already committed.
+
+**Errors**
+
+- `400` invalid ID, forbidden system/identity field, invalid email, or no updatable fields;
+- `401` missing/invalid bearer token;
+- `403` attempt to update another customer;
+- `404` current customer profile not found;
+- other `biz-app` update errors are relayed.
+
+Password changes are not performed by this route.
+
+---
 
 #### `GET /customer`
 
-Requires customer bearer authentication.
+Customer bearer token required.
 
-**Success — `200`**: `Customer`.  
-**Errors:** `401`; `404` no mapped profile; proxied errors.
+Resolves the current customer from token subject and returns the corresponding business profile.
+
+**Success - `200`**: `Customer`.
+
+**Errors:** `401` token failure; `404` profile missing; upstream errors may be relayed.
+
+---
 
 #### `POST /customer/update_password`
 
-Requires customer bearer authentication. Identity selectors are prohibited.
+Customer bearer token required. Changes only the caller's own ESTORE Keycloak password.
 
 **Body**
 
 ```json
 {
   "current_password": "old-password",
-  "new_password": "new-password-at-least-8-characters"
+  "new_password": "new-password"
 }
 ```
 
-**Success — `200`**
+`new_password` must be a string of at least 8 characters.
+
+The following identity-targeting fields are rejected if present:
+
+- `id`
+- `identifier`
+- `merchant_id`
+- `username`
+- `customer_id`
+- `keycloak_user_id`
+- `user_id`
+- `sub`
+
+The route retrieves the current Keycloak user, obtains its username, verifies the supplied current password through an ESTORE password grant, and only then performs the Keycloak reset-password operation.
+
+**Success - `200`**
 
 ```json
 {
@@ -627,523 +1094,997 @@ Requires customer bearer authentication. Identity selectors are prohibited.
 }
 ```
 
-**Errors:** `400` missing/short input or supplied identity fields; `403` current password invalid; `500` update failure.
+**Errors**
 
----
+- `400` identity field supplied, missing current/new password, or new password shorter than 8 characters;
+- `401` invalid customer bearer token;
+- `403` current password is incorrect;
+- `404` business customer profile missing;
+- `500` Keycloak password operation failure.
 
-### 8.4 Store and catalog
+### 9.3 Store, payment configuration, and catalog
 
 #### `GET /payment_networks`
 
-Returns the currently configured PaymentAsia choices for this merchant. No customer bearer token is required because the result is storefront presentation data, not a credential.
+Public storefront configuration endpoint.
 
-`estore-app` reads the configured merchant through authenticated server-to-server `biz-app` access, requires `payment_gateway == PAYMENT_ASIA`, parses the merchant's comma-separated `payment_networks`, and validates every entry.
+The configured merchant is resolved through `biz-app`. The merchant must use `PAYMENT_ASIA`, and its comma-separated stored network configuration must parse to a non-empty, unique list containing only supported exact network names.
 
-**Success — `200`**: `PaymentNetworkConfiguration`.
+**Success - `200`**: `PaymentNetworkConfiguration`.
 
 ```json
 {
   "payment_gateway": "PAYMENT_ASIA",
-  "payment_networks": ["CreditCard", "Fps", "PayMe"]
+  "payment_networks": ["CreditCard", "Fps"]
 }
 ```
 
-**Errors:** `400` merchant is not configured for PaymentAsia; proxied `biz-app` authentication/scope errors when merchant lookup fails; `502` when the merchant lookup is ambiguous/malformed or the stored network configuration is empty, duplicated, or contains unsupported values.
+**Errors**
 
-The storefront should call this endpoint when presenting checkout methods and should not hard-code a network list.
+- `400` configured merchant does not use PaymentAsia checkout;
+- `502` merchant lookup is invalid/ambiguous or the stored network list is malformed;
+- scoped `biz-app` errors may be relayed.
+
+---
 
 #### `GET /store`
 
-Returns the one configured store.
+Public. Returns the one configured store.
 
-**Success — `200`**: `Store`.
+Internally this is equivalent to calling `/store/{configured integer store id}` after startup resolution.
+
+**Success - `200`**: `Store`.
+
+**Errors:** `400` configured store ID unavailable; `403` scope violation; `404` store missing; upstream errors may be relayed.
+
+---
 
 #### `GET /store/{store_id}`
 
-`store_id` must be the configured numeric store ID. This is not a cross-store lookup facility.
+Public but restricted to the one configured store.
 
-**Success — `200`**: `Store`.  
-**Errors:** `404` missing; `403` outside configured merchant/store scope.
+The route retrieves the store through scoped `biz-app` authentication and verifies both:
+
+- `merchant_id == configured merchant id`;
+- `id == configured store id`.
+
+**Success - `200`**: `Store`.
+
+**Errors:** `403` any other merchant/store scope; `404` missing; upstream errors may be relayed.
+
+---
 
 #### `GET /products`
 
-Returns approved products from the configured store and attaches each product's file metadata.
+Public approved-catalog collection.
 
-**Query parameters**
+**Supported/meaningful query parameters** inherited from `biz-app` include:
 
-| Parameter | Type | Behavior |
+| Parameter | Type | eStore behavior |
 |---|---|---|
-| `name` | string | Case-insensitive substring match. |
-| `description` | string | Case-insensitive substring match. |
-| `identifier` | string | Case-insensitive substring match. |
-| `state` | string | May be omitted, blank, or `A`. Any other value returns `403`. `estore-app` always forwards `A`. |
-| `store_id` | integer | Optional; if supplied it must equal the configured store. The server always enforces the configured store. |
-| `recurring` | boolean-like string | Optional filter forwarded to `biz-app`: true selects subscription products; false selects ordinary products. |
+| `store_id` | integer | Optional, but if supplied must equal the configured store. eStore then forces the configured store ID. |
+| `state` | string | Omit, empty, or `A`. Any other explicit state returns `403`. eStore always sends `A` upstream. |
+| `name` | string | Forwarded catalog search filter. |
+| `description` | string | Forwarded catalog search filter. |
+| `identifier` | string | Forwarded catalog search filter. |
 
-**Success — `200`**: `Product[]`, sorted by product name by `biz-app`. Each product contains `files`.
+After receiving the upstream list, eStore verifies every row is an object with state `A`. It then retrieves `/files?product_id=...` for every product and adds:
 
-**Defensive behavior:** if `biz-app` returns a non-list, malformed row, or non-approved product, `estore-app` returns `502` rather than exposing it.
+```json
+"files": [ ... ]
+```
+
+**Success - `200`**: `Product[]`, each including `files`.
+
+An empty approved catalog returns `[]`.
+
+**Errors**
+
+- `400` invalid numeric filter;
+- `403` caller requests another store or non-approved state;
+- `502` invalid/non-approved upstream product payload or invalid file payload;
+- relevant `biz-app` errors are relayed.
+
+---
 
 #### `GET /product/{product_id}`
 
-Returns one approved product from the configured store, with `files`.
+Public read of one currently approved configured-store product.
 
-**Success — `200`**: `Product`.  
-**Errors:** `404` absent or not approved; `403` outside store; `502` invalid upstream shape.
+The route validates:
+
+1. product exists through scoped `biz-app` access;
+2. product is an object;
+3. product `state == "A"`;
+4. product store is the configured eStore store;
+5. product file metadata can be retrieved.
+
+**Success - `200`**: `Product` including `files`.
+
+**Errors:** `403` store scope; `404` absent/non-approved product; `502` invalid upstream payload; relevant upstream errors may be relayed.
+
+---
 
 #### `GET /inventories`
 
+Public product-scoped inventory read.
+
 **Required query**
 
 | Parameter | Type | Notes |
 |---|---|---|
-| `product_id` | integer | Required; product must be approved and belong to the configured store. |
-| `location` | string | Optional case-insensitive substring filter forwarded to `biz-app`. |
+| `product_id` | integer | Must identify an approved product in the configured store. |
 
-**Success — `200`**: `Inventory[]`, ordered by product, location, and row ID. Sum all rows for total availability. Empty array means zero.
+Other query values such as `location` are forwarded to `biz-app` after product scope is established.
 
-**Errors:** `400` missing/non-integer product ID; `404` product absent/not approved; `403` outside scope.
+**Success - `200`**: `Inventory[]`.
+
+Availability is:
+
+```text
+sum(row.quantity for each returned row)
+```
+
+An empty list means zero availability.
+
+**Errors**
+
+- `400` missing/invalid `product_id`;
+- `403` scope;
+- `404` product not eStore-visible;
+- upstream inventory errors are relayed.
+
+---
 
 #### `GET /file/{file_id}`
 
-Returns metadata for a file whose parent product is approved and in scope.
+Public product-file metadata read.
 
-**Success — `200`**: `ProductFile`.  
-**Errors:** `404` missing or parent unavailable; `403` outside scope; `502` invalid upstream data.
+The file's parent product is revalidated as currently approved and configured-store scoped. If the upstream file includes `merchant_id`, it must equal the configured merchant.
+
+**Success - `200`**: `ProductFile`.
+
+**Errors:** `403` scope; `404` file/product missing or parent no longer approved; `502` malformed upstream metadata.
+
+---
 
 #### `GET /image/{file_id}`
 
-Returns an inline image response. The parent product must be approved and in scope, and the file MIME type must begin with `image/`.
+Public inline image relay.
 
-**Success — `200`**: bytes with the stored image MIME type and an inline content disposition.  
-**Errors:** JSON `400` if not an image; `404` metadata or stored bytes missing; `502` relay failure.
+The file metadata and parent product are scope-checked before bytes are requested from `biz-app /image/{id}`.
 
-In browser applications, request this endpoint as a `Blob`, create an object URL, and revoke the URL when no longer used.
+**Success - normally `200`**: binary response with upstream image MIME/disposition headers.
+
+**Errors**
+
+- scope/file/product errors as for `/file/{id}`;
+- provider/business response codes are relayed;
+- `502` binary relay network failure.
+
+---
 
 #### `GET /download`
+
+Public attachment relay.
 
 **Required query**
 
 | Parameter | Type | Notes |
 |---|---|---|
-| `file_id` | integer | Required; parent product must be approved and in scope. |
+| `file_id` | integer | File metadata ID. Parent product must currently be approved and store-scoped. |
 
-**Success — `200`**: bytes with attachment content disposition and the stored filename.  
-**Errors:** `400`, `403`, `404`, or `502` as applicable.
+**Success - normally `200`**: attachment bytes and upstream filename/MIME/disposition headers.
 
----
+**Errors**
 
-### 8.5 Orders and order items
+- `400` missing/invalid `file_id`;
+- `403` scope;
+- `404` file/product missing or hidden;
+- `502` binary relay network failure;
+- other upstream errors are relayed.
 
-All routes in this section require customer bearer authentication. `estore-app` overwrites customer, merchant, and store filters with the current authenticated scope. A caller cannot use query parameters to read another customer's records.
+### 9.4 Customer orders, order items, and payments
 
 #### `GET /orders`
 
-**Optional query**
+Customer bearer token required.
 
-| Parameter | Type | Notes |
-|---|---|---|
-| `status` | one-letter string | Exact order-status filter. |
+The route starts with caller query parameters, then forcibly applies:
 
-**Success — `200`**: `Order[]`, newest first.
+```text
+customer_id = current customer id
+merchant_id = configured merchant id
+store_id    = configured store id
+```
+
+A caller therefore cannot enumerate another customer's orders by supplying different scope filters.
+
+Additional business filters such as `status`, when supported by `biz-app`, are forwarded within that forced scope.
+
+**Success - `200`**: `Order[]`.
+
+**Errors:** `401` token; `404` customer profile; relevant upstream validation/errors are relayed.
+
+---
 
 #### `GET /order/{order_id}`
 
-The order must belong to the current customer, merchant, and store.
+Customer bearer token required.
 
-**Success — `200`**: `Order`.  
-**Errors:** `404` missing; `403` outside customer or deployment scope.
+Before returning the order, eStore requires:
+
+- order exists;
+- `order.customer_id` equals current customer ID;
+- `order.merchant_id` equals configured merchant ID;
+- order's store passes configured-store validation.
+
+**Success - `200`**: `Order`.
+
+**Errors:** `403` other customer/merchant/store; `404` missing order/profile; upstream errors may be relayed.
+
+There is no eStore `POST /order` or `DELETE /order/{id}`. Orders are created only by trusted checkout/subscription completion workflows and are read-only to storefront customers.
+
+---
 
 #### `GET /order_items`
 
-**Optional query**
+Customer bearer token required.
 
-| Parameter | Type | Notes |
+The route forces current customer/merchant/store filters before forwarding to `biz-app`.
+
+Optional caller filters explicitly validated by eStore:
+
+| Parameter | Type | Behavior |
 |---|---|---|
-| `order_id` | integer | Prevalidated as an order of the current customer. |
-| `product_id` | integer | Prevalidated as a currently approved product in the configured store. |
+| `order_id` | integer | Order must belong to current customer and configured store. |
+| `product_id` | integer | Product must be currently approved and configured-store scoped. |
 
-**Success — `200`**: `OrderItem[]`, oldest first within the result set. Every row contains `state`, including `null` when not delivered.
+Successful payloads are normalized so every object contains `state`, defaulting to `null` only when an upstream row omitted the field.
+
+**Success - `200`**: `OrderItem[]`.
+
+**Errors:** `400` invalid ID filter; `401` token; `403` scope; `404` referenced resource/customer missing; upstream errors may be relayed.
+
+---
 
 #### `GET /order_item/{order_item_id}`
 
-The parent order must belong to the current customer and configured scope.
+Customer bearer token required.
 
-**Success — `200`**: `OrderItem`.
+The order item is read through `biz-app`, and its parent order is then validated against the current customer and configured merchant/store.
+
+**Success - `200`**: `OrderItem` with a guaranteed `state` key.
+
+**Errors:** `403` scope; `404` missing item/order/customer; relevant upstream errors may be relayed.
+
+There is no eStore route to create, edit, delete, or mark an order item delivered. Recurring subscription cancellation is exposed only through the dedicated customer-scoped action below.
+
+---
 
 #### `POST /order_item/{order_item_id}/recurring/cancel`
 
-Cancels the customer's own recurring subscription. The parent order must belong
-to the current customer and configured scope; `estore-app` verifies that before
-proxying to biz-app. The request takes no body.
+Customer bearer token required. Cancels one recurring subscription order item owned by the authenticated customer.
 
-**Success — `200`**: the serialized `OrderItem`, with `recurring_status` moved to
-`CANCELLED`.
+Before forwarding the action, eStore:
 
-Any non-2xx means nothing changed and the subscription is still active, so the
-call is safe to retry. Cancelling stops future collections; it is not a refund
-and does not alter payments already taken.
+1. resolves the current customer from the bearer token;
+2. loads the requested order item;
+3. loads and validates its parent order through the existing customer/order scope checks;
+4. requires that the parent order belongs to the current customer, configured merchant, and configured store;
+5. only then calls `biz-app POST /order_item/{order_item_id}/recurring/cancel`.
 
-#### Deliberately absent writes
+The browser does not supply a customer ID, merchant ID, store ID, recurring merchant reference, PaymentAsia mode, or provider cancellation payload.
 
-The customer API does not expose:
+`biz-app` independently enforces the authenticated eStore service's merchant/store scope and performs the authoritative recurring cancellation workflow.
 
-- `POST /order`
-- `DELETE /order/{id}`
-- `POST /order_item`
-- `DELETE /order_item/{id}`
-- delivery-state mutation
+**Success - `200`**: the updated `OrderItem` plus an `idempotent` boolean. A newly accepted cancellation returns `idempotent: false`; an already-cancelled subscription returns `idempotent: true`.
 
-Orders and order items are finalized by the verified checkout transaction. The
-only customer-initiated write is
-`POST /order_item/{order_item_id}/recurring/cancel`, which moves
-`recurring_status` to `CANCELLED` on the customer's own subscription and changes
-nothing else. Order and order-item records are otherwise immutable from the
-customer storefront.
+**Errors**
+
+- `401` missing/invalid customer bearer token;
+- `403` requested order item belongs to another customer or falls outside the configured merchant/store scope;
+- `404` customer, order item, or parent order missing;
+- `409` order item is not recurring or the recurring schedule is already completed;
+- PaymentAsia/provider and business-workflow failures are relayed from `biz-app`, including applicable `500`/`502` responses.
 
 ---
-
-### 8.6 Payments
-
-All routes require customer bearer authentication and are scoped through the payment's parent order.
 
 #### `GET /payments`
 
-**Optional query**
+Customer bearer token required.
 
-| Parameter | Type | Notes |
-|---|---|---|
-| `order_id` | integer | Parent order; prevalidated as current-customer scope. |
-| `status` | one-letter string | Exact payment status. |
-| `currency` | 3-letter string | Normalized to uppercase. |
-| `identifier` | string | Case-insensitive substring match. |
-| `reference` | string | Case-insensitive substring match. |
-| `created_from` | ISO-8601 date/time | Inclusive lower bound. Timezone-aware input is normalized to UTC. |
-| `created_to` | ISO-8601 date/time | Exclusive upper bound. |
+The route forces:
 
-**Success — `200`**: `Payment[]`, newest first.
+```text
+customer_id = current customer id
+merchant_id = configured merchant id
+store_id    = configured store id
+```
 
-#### `GET /payment/{payment_id}`
+If caller supplies `order_id`, the referenced order must first pass current-customer scope validation.
 
-The payment's order must belong to the current customer and configured scope.
+Additional business filters accepted by `biz-app` may be forwarded inside the forced scope.
 
-**Success — `200`**: `Payment`.
+**Success - `200`**: `Payment[]`.
 
-#### Deliberately absent writes
-
-There is no customer-facing `POST /payment`. One-time payment rows are created only after a verified Standard Hosted Payment result. Subscription schedule acceptance does not create a one-time `Payment` row, and recurring execution records are not exposed as separate estore-app endpoints in this source snapshot; customers observe subscription state through their order items.
+**Errors:** `400` invalid order ID; `401` token; `403` scope; `404` customer/order missing; upstream errors may be relayed.
 
 ---
 
-### 8.7 Ordinary checkout and recurring subscriptions
+#### `GET /payment/{payment_id}`
+
+Customer bearer token required.
+
+The payment is retrieved through `biz-app`; its `order_id` is then validated as an order belonging to the current customer and configured store.
+
+**Success - `200`**: `Payment`.
+
+**Errors:** `403` scope; `404` missing payment/order/customer; upstream errors may be relayed.
+
+There is no customer-facing eStore payment create/update/delete route. Standard payment rows are created only through verified standard checkout finalization. Subscription schedule acceptance does not create a one-time payment row merely for the schedule setup.
+
+### 9.5 Standard one-time checkout
 
 #### `POST /checkout`
 
-Requires customer bearer authentication. This endpoint accepts ordinary products only. A product with recurring terms is rejected with guidance to use `/subscribe`.
+Customer bearer token required. Starts PaymentAsia Standard Hosted Payment for a cart containing **ordinary, non-recurring products only**.
 
-**Body**
+**Typical body**
 
 ```json
 {
   "cart": [
-    { "product_id": 101, "quantity": 2 },
-    { "product_id": 205, "quantity": 1 }
+    {
+      "product_id": 101,
+      "quantity": 2
+    },
+    {
+      "product_id": 102,
+      "quantity": 1
+    }
   ],
   "network": "CreditCard",
-  "response_mode": "json",
+  "response_mode": "html",
+  "subject": "Order summary",
   "lang": "en",
-  "subject": "Optional payment subject",
   "customer_state": "HK",
   "customer_country": "HK",
   "customer_postal_code": "000000"
 }
 ```
 
-| Field | Required | Validation/default |
-|---|---:|---|
-| `cart` | Yes | Non-empty array. Each line has integer `product_id` and integer `quantity > 0`. Duplicate products are rejected. |
-| `network` | Yes | Exact value from current `GET /payment_networks`; disabled values return `403`. |
-| `response_mode` | No | `html` (default) or `json`. |
-| `lang` | No | Body value, otherwise `ESTORE_CHECKOUT_LANG` when configured. |
-| `subject` | No | Defaults to `Order <merchant_reference>`. |
-| `customer_state` | No | Defaults to `HK`. |
-| `customer_country` | No | Defaults to `HK`. |
-| `customer_postal_code` | No | Defaults to `000000`. |
+#### Required fields
 
-The server ignores client prices, totals, currency, identity/address fields, callback URLs, and merchant reference. It re-reads approved products, rejects subscription products, validates one currency and current inventory, and derives prices and totals using decimal arithmetic.
+- `cart`: non-empty array;
+- `network`: non-empty string and currently enabled for the merchant.
 
-It creates a globally unique merchant reference and an order-less `C` intent containing immutable `intent_details` with `checkout_kind: ordinary`, the selected payment network, original cart, and complete line-item snapshot. It never supplies `order_id` and never updates the intent after creation.
+Each cart row must be an object with:
 
-`biz-app` independently revalidates merchant network configuration, order-less scope, current product state and price, callback paths, and the immutable snapshot. It creates one trusted Standard checkout claim and stores the exact signed launch response. An identical internal retry returns the saved response rather than issuing another launch.
+- integer `product_id`;
+- integer `quantity > 0`.
 
-For `Octopus`, the total must be an exact multiple of HKD 0.10. An incompatible cart total is rejected by `biz-app` with `400`; no signed PaymentAsia form or trusted checkout claim is created.
+Duplicate product IDs within one cart are rejected.
 
-**HTML success - `200 text/html`**
+#### Server-side cart authority
 
-Default response is an auto-submitting PaymentAsia form. The document includes `data-checkout-id` and `data-checkout-reference`, has `Cache-Control: no-store`, and may include the configured frame-ancestors CSP.
+For every line, eStore re-reads the product and inventory from `biz-app` and requires:
 
-**JSON success - `200 application/json`**
+- product exists and is currently approved;
+- product belongs to configured store;
+- product currency is present;
+- current product amount parses as decimal and is greater than zero;
+- product has **no** recurring plan;
+- summed current inventory is at least requested quantity.
+
+All cart products must use the same currency.
+
+The browser does not send trusted `unit_amount`, line `amount`, or total. eStore calculates them from the current catalog.
+
+#### Optional fields
+
+| Field | Behavior |
+|---|---|
+| `response_mode` | `html` (default) or `json`. |
+| `subject` | Provider checkout subject; defaults to `Order <merchant_reference>`. |
+| `lang` | PaymentAsia language; otherwise `ESTORE_CHECKOUT_LANG` may be used. |
+| `customer_state` | Provider customer state; defaults to `HK`. |
+| `customer_country` | Provider customer country; defaults to `HK`. |
+| `customer_postal_code` | Provider postal code; defaults to `000000`. |
+
+#### Intent creation
+
+Before contacting PaymentAsia, eStore generates a UUID4 `merchant_reference` and creates an order-less intent through `biz-app` with status `C`.
+
+Its immutable `intent_details` contains a trusted snapshot similar to:
 
 ```json
 {
-  "checkout_id": "intent-uuid",
-  "checkout_reference": "merchant-reference-uuid",
-  "action_url": "https://payment-gateway.example/...",
-  "fields": { "signed_field": "value" }
+  "source": "estore_checkout",
+  "merchant_reference": "uuid-reference",
+  "cart": [
+    {"product_id": 101, "quantity": 2}
+  ],
+  "line_items": [
+    {
+      "product_id": 101,
+      "quantity": 2,
+      "unit_amount": "25.00",
+      "amount": "50.00"
+    }
+  ],
+  "payment_network": "CreditCard",
+  "subject": "Order uuid-reference",
+  "checkout_options": {
+    "lang": "en"
+  },
+  "checkout_kind": "ordinary"
 }
 ```
 
-JSON mode is intended for popup clients that create a normal popup document and submit the returned fields directly. It avoids relying on a top-level blob URL after navigation crosses to PaymentAsia.
+No order exists merely because this intent was created.
 
-**Errors:** `400` request/cart/currency/inventory/response-mode validation, Octopus increment, or `biz-app` checkout validation; `401` auth; `403` network disabled; `404` customer/product; `409` conflicting or terminal trusted checkout; `500` intent creation; `502` malformed/upstream gateway response.
+#### PaymentAsia launch
 
-#### Obtaining `checkout_id`
+The internal request to `biz-app /pa/checkout` contains:
 
-In HTML mode, parse the hidden `return_url` or `notify_url`, or read the `data-checkout-id` attribute. In JSON mode, use `checkout_id` directly.
+- intent identifier;
+- immutable merchant reference;
+- calculated currency/amount;
+- eStore-generated exact return and notify URLs;
+- customer IP;
+- customer name/address/phone/email with configured fallbacks;
+- selected network;
+- `generic: false`;
+- subject and optional language.
 
----
+Callback URLs are:
+
+```text
+<public-base>/checkout/return/<intent.identifier>
+<public-base>/checkout/notify/<intent.identifier>
+```
+
+`public-base` is selected in this order:
+
+1. `ESTORE_PUBLIC_BASE_URL` when configured;
+2. first `X-Forwarded-Proto` + first `X-Forwarded-Host` when both are present;
+3. Flask `request.url_root`.
+
+#### HTML success - `200`
+
+Default `response_mode=html` returns an HTML form whose action and hidden fields are supplied by the trusted `biz-app` PaymentAsia checkout response. JavaScript immediately submits the form to PaymentAsia. A `<noscript>` button is provided.
+
+#### JSON success - `200`
+
+With `response_mode=json`, returns `CheckoutLaunch`:
+
+```json
+{
+  "checkout_id": "intent-identifier",
+  "checkout_reference": "uuid-reference",
+  "action_url": "https://...",
+  "fields": {"...": "signed PaymentAsia form fields"}
+}
+```
+
+#### Errors
+
+- `400` missing network, invalid response mode, invalid cart, duplicate product, non-positive quantity, ordinary/subscription mismatch, invalid amount/currency, insufficient inventory, or mixed currencies;
+- `401` customer bearer token failure;
+- `403` network not enabled or product/store scope;
+- `404` customer/product context missing;
+- upstream `biz-app /pa/checkout` status/body when it rejects the launch;
+- `500` checkout-intent creation failure;
+- `502` successful-looking upstream launch response lacks a valid `action_url`/`fields` structure.
+
+A successful launch is **not** proof of payment and does not create the order.
+
+### 9.6 Subscription checkout
 
 #### `POST /subscribe`
 
-Requires customer bearer authentication. Starts a recurring subscription for exactly one recurring product and quantity; subscription products are not accepted in the ordinary cart.
+Customer bearer token required. Starts PaymentAsia recurring card tokenization for exactly one recurring product and quantity.
 
-**Body**
+**Typical body**
 
 ```json
 {
-  "product_id": 301,
-  "quantity": 1,
-  "subject": "Subscription Example Product",
-  "token_valid_date": "2027-07-21"
+  "product_id": 201,
+  "quantity": 2,
+  "subject": "Annual service subscription",
+  "token_valid_date": "2029-12-31"
 }
 ```
 
-| Field | Required | Validation/default |
-|---|---:|---|
-| `product_id` | Yes | Must be approved, in the configured store, and have a complete recurring plan. |
-| `quantity` | No | Positive integer; defaults to `1`. |
-| `subject` | No | Defaults from product name/reference. |
-| `token_valid_date` | No | Forwarded to PaymentAsia tokenization when supplied. |
+`product_id` is required. `quantity` defaults to `1` and must be positive.
 
-The server requires:
+The product is re-read from the current approved configured-store catalog. eStore requires:
 
-- product currency `HKD`;
-- sufficient current inventory;
-- merchant-enabled `CreditCard` network;
-- current product price and recurring plan;
-- a start date of the next calendar day in Asia/Hong_Kong.
+- a complete recurring plan;
+- frequency `WEEKLY`, `MONTHLY`, or `YEARLY`;
+- positive recurring interval;
+- positive total execution count;
+- positive current product amount;
+- sufficient current inventory for requested quantity;
+- currency exactly `HKD`;
+- merchant PaymentAsia configuration includes `CreditCard`.
 
-It creates an order-less intent with one recurring line and calls `biz-app /recurring/checkout`. The returned HTML immediately navigates the payment window to the validated PaymentAsia tokenization redirect link and also provides a manual Continue link.
+The subscription recurring start date is generated as tomorrow's calendar date in the `Asia/Hong_Kong` timezone.
 
-**Success — `200 text/html`** with `Cache-Control: no-store`.
+#### Subscription intent
 
-**Errors:** `400` missing/invalid/non-recurring/HKD/inventory input; `401` auth; `403` CreditCard disabled; `404` customer/product; `500` intent creation; `502` malformed or rejected tokenization launch response.
+EStore generates a UUID4 merchant reference and creates a status-`C` order-less intent with immutable details similar to:
 
----
+```json
+{
+  "source": "estore_subscription",
+  "merchant_reference": "uuid-reference",
+  "subscription": {
+    "product_id": 201,
+    "quantity": 2
+  },
+  "line_items": [
+    {
+      "product_id": 201,
+      "quantity": 2,
+      "unit_amount": "100.00",
+      "amount": "200.00",
+      "recurring_start_date": "2026-08-13",
+      "recurring_frequency": "MONTHLY",
+      "recurring_intervals": 1,
+      "recurring_total_execution_times": 12
+    }
+  ],
+  "payment_network": "CreditCard",
+  "subject": "Annual service subscription",
+  "checkout_kind": "subscription"
+}
+```
+
+#### Recurring launch
+
+EStore then calls `biz-app /recurring/checkout` with:
+
+```json
+{
+  "intent_identifier": "intent-identifier",
+  "customer_ip": "203.0.113.20",
+  "return_url": "https://store-api.example.com/recurring/tokenization/return/intent-identifier",
+  "notify_url": "https://store-api.example.com/recurring/tokenization/notify/intent-identifier",
+  "payment_notify_url": "https://store-api.example.com/recurring/payment/notify",
+  "subject": "Annual service subscription",
+  "token_valid_date": "2029-12-31"
+}
+```
+
+`token_valid_date` is included only when the caller supplied a non-empty value. Validation/interpretation of the provider token-valid date is downstream.
+
+The internal recurring response must be a JSON object with `accepted: true` and a valid absolute `http`/`https` redirect link discoverable from the accepted result.
+
+#### Success - `200` HTML
+
+Returns an HTML page that immediately `window.location.replace(...)` redirects the browser to the PaymentAsia secure card-verification URL. A normal clickable `Continue` link is present as fallback.
+
+#### Errors
+
+- `400` missing/invalid product or quantity, invalid recurring terms, ordinary product, non-HKD recurring product, invalid price, insufficient inventory;
+- `401` customer bearer token;
+- `403` product/store scope or merchant has not enabled `CreditCard`;
+- `404` customer/product context missing;
+- upstream `biz-app /recurring/checkout` errors are relayed;
+- `500` subscription-intent creation failure;
+- `502` recurring request is not accepted or accepted response lacks a valid redirect URL.
+
+Tokenization acceptance is not itself proof that a recurring schedule/order has been successfully finalized.
+
+### 9.7 Checkout status and callback routes
 
 #### `GET /checkout/status/{checkout_id}`
 
-Requires customer bearer authentication and validates both customer and configured-store scope. It reports ordinary and subscription intents.
+Customer bearer token required. This is the durable storefront polling endpoint for both ordinary and subscription intents.
 
-**Success — `200`**: `CheckoutStatus`.
+The route loads the intent by public identifier through `biz-app /intents?identifier=...`, then requires:
 
-| Intent status | Meaning |
-|---|---|
-| `C` | Created. |
-| `R` | Redirected/processing; not terminal. |
-| `S` | Successful; terminal. |
-| `F` | Failed; terminal. |
-| `U` | Unknown/reconciliation required; terminal for UI waiting. |
+- `intent.customer_id` equals current customer ID;
+- `intent.store_id` equals configured store ID;
+- when `order_id` exists, that order also passes current customer/store scope validation.
 
-`checkout_reference` is the storefront reference created before gateway redirect. `payment_reference` prefers the final one-time `Payment.reference` when an order/payment exists and otherwise falls back safely to verified/intent references. For subscriptions, `recurring_checkout_status` exposes the detailed recurring state.
+**Success - `200`**: `CheckoutStatus`.
+
+`complete` is calculated as:
+
+```text
+status in {S, F, U}
+```
+
+`success` is calculated as:
+
+```text
+status == S
+```
+
+`R` is explicitly **not** terminal and must continue polling.
+
+`payment_reference` is resolved with these fallbacks:
+
+1. newest non-empty payment `reference` for the linked order, when an order exists;
+2. trusted `system_details.request_reference`;
+3. trusted `system_details.payment_reference`;
+4. immutable intent `reference`;
+5. immutable `intent_details.merchant_reference`.
+
+`checkout_reference` is the storefront merchant reference from immutable intent details, falling back to intent reference.
+
+`paymentasia_status` is read from trusted intent `system_details`.
+
+`recurring_checkout_status` is the trusted recurring checkout state's `state` value when present.
+
+**Errors:** `401` token; `403` checkout belongs to another customer/store; `404` customer/intent/order missing; `502` malformed scope values; upstream errors may be relayed.
 
 ---
 
 #### `GET|POST /checkout/return/{checkout_id}`
 
-PaymentAsia one-time browser return. Form, query, or JSON-like callback fields are accepted by the shared payload reader.
+Public browser-facing return URL for standard PaymentAsia checkout.
 
-When callback-looking fields are present, the route makes a best-effort call to verified payment recording. It never displays a verifier/proxy error as the customer page. It then renders the durable intent state:
+Callback payload extraction accepts, in priority order:
 
-- `S`: successful HTML, `200`;
-- `F`: failed HTML, `200`;
-- `U`: uncertain/reconciliation HTML, `202`;
-- other states: processing HTML, `202`;
-- unavailable intent: recovery guidance, `404` HTML.
+1. submitted form fields;
+2. query parameters;
+3. JSON object body.
 
-The page displays order/payment information when available and posts `PINGBIZ_ESTORE_CHECKOUT_COMPLETE` to `window.parent` and `window.opener` immediately and again after short delays. The message is only a wake-up signal; authenticated `/checkout/status` is authoritative. The page does not close its own window.
+If the payload contains any callback-looking key from:
+
+- `status`
+- `merchant_reference`
+- `request_reference`
+- `currency`
+- `amount`
+- `sign`
+
+then eStore makes a best-effort attempt to forward the payload to `biz-app /paymentasia/record_payment`.
+
+A verifier/finalization error is deliberately **not** returned as the browser page. The route logs the deferred recording condition and always renders the current durable intent state instead.
+
+This design accommodates:
+
+- unsigned browser navigation;
+- partial provider return data;
+- duplicate browser return;
+- notify arriving before return;
+- notify arriving after return.
+
+**Rendered state**
+
+| Intent status | HTTP | Page |
+|---|---:|---|
+| `S` | `200` | successful |
+| `F` | `200` | failed |
+| `U` | `202` | uncertain / reconciliation |
+| other existing state | `202` | processing |
+| intent unavailable | `404` | unavailable |
+
+The HTML page emits the `PINGBIZ_ESTORE_CHECKOUT_COMPLETE` browser message but authenticated storefront code should confirm state with `/checkout/status/{checkout_id}`.
 
 ---
 
 #### `POST /checkout/notify/{checkout_id}`
 
-PaymentAsia one-time server notification. Forwards the raw payload to verified `biz-app /paymentasia/record_payment`.
+Public provider-server callback for standard checkout. Unlike the browser-return route, this route is strict.
 
-**Success — `200`**
+The callback payload is forwarded to:
+
+```text
+biz-app POST /paymentasia/record_payment
+```
+
+with the route's `checkout_id` as `intent_identifier`.
+
+`biz-app` is authoritative for signature verification, callback binding, order creation, order-item finalization, inventory commitment, payment creation/idempotency, and successful intent/order state.
+
+**Success - `200`**
 
 ```json
 {
   "ok": true,
-  "payment": { "payment_id": 77, "order_id": 123, "status": "S", "idempotent": false }
+  "payment": {
+    "...": "biz-app payment finalization result"
+  }
 }
 ```
 
-A verified failure updates the intent to `F` and returns a result without creating a one-time `Payment` row. Exact successful/failure replays are idempotent.
+**Errors:** strict verification/finalization errors and their HTTP statuses are relayed from `biz-app`; network/proxy failure behavior follows the internal request path.
 
 ---
 
 #### `GET|POST /recurring/tokenization/return/{checkout_id}`
 
-PaymentAsia subscription browser return.
+Public browser return for subscription tokenization.
 
-- If there is no `sign`, the request is navigation only. The route reads the durable intent and renders success, failure, uncertain, or processing HTML without sending decorative/empty fields to the verifier.
-- If a signed payload is present, it forwards the tokenization result to `biz-app /recurring/tokenization/record`. On success, the rendered page requires exactly one active recurring order item and an order ID.
+The callback payload uses the same form/query/JSON extraction rules.
 
-The page uses the same visible return template and `postMessage` wake-up protocol as ordinary checkout; it does not close itself.
+If no non-empty `sign` field is present, the request is treated as **navigation only**. EStore does not submit it to the strict tokenization verifier. It renders the current durable recurring intent state.
+
+Navigation-only rendering:
+
+| Intent status | HTTP | Page |
+|---|---:|---|
+| `S` | `200` | subscription successful |
+| `F` | `200` | subscription failed |
+| `U` | `202` | uncertain/reconciling |
+| other | `202` | processing |
+
+When trusted recurring system state is `SCHEDULE_CREATING`, processing text specifically reports that the card was verified and the schedule is being created.
+
+If `sign` is present, eStore forwards the payload to:
+
+```text
+biz-app POST /recurring/tokenization/record
+```
+
+and propagates errors rather than silently rendering around them.
+
+After a successful signed result, eStore requires the result to indicate a pure subscription flow:
+
+- `requires_one_time_payment` is not true;
+- `one_time_payment` is absent/empty;
+- exactly one `order_items` row exists;
+- that row contains non-empty `recurring_merchant_reference`;
+- an `order_id` exists.
+
+Then it renders a `200` successful subscription page.
+
+**Errors:** downstream tokenization errors are relayed; unexpected mixed/invalid result shape returns `502`.
 
 ---
 
 #### `POST /recurring/tokenization/notify/{checkout_id}`
 
-Authoritative signed tokenization notification. It calls the same idempotent `biz-app /recurring/tokenization/record` endpoint used by a signed browser return.
+Public strict provider callback for subscription card tokenization/schedule setup.
 
-**Success — `200`**
+Payload is forwarded to `biz-app /recurring/tokenization/record` with `intent_identifier = checkout_id`.
+
+**Success - `200`**
 
 ```json
 {
   "ok": true,
   "checkout": {
-    "order_id": 123,
-    "status": "COMPLETE",
-    "idempotent": false,
-    "order_items": [ { "recurring_status": "ACTIVE" } ]
+    "...": "recurring tokenization/finalization result"
   }
 }
 ```
+
+Errors are relayed from the authoritative business verification/finalization path.
 
 ---
 
 #### `POST /recurring/payment/notify`
 
-PaymentAsia recurring execution notification. The body may be form data or JSON. It is forwarded to `biz-app /recurring/payment/record`, which verifies and idempotently stores the execution.
+Public strict provider callback for later recurring payment executions.
 
-**Success — `200`**
+There is no route-level `checkout_id`. The PaymentAsia payload carries the provider/merchant references needed by `biz-app` to resolve the persisted recurring schedule and frozen payment environment.
+
+The payload is forwarded to:
+
+```text
+biz-app POST /recurring/payment/record
+```
+
+**Success - `200`**
 
 ```json
 {
   "ok": true,
   "recurring_payment": {
-    "id": 801,
-    "order_item_id": 901,
-    "execution_number": 2,
-    "amount": "29.90",
-    "currency": "HKD",
-    "status": "SUCCESS",
-    "idempotent": false
+    "...": "recurring execution recording result"
   }
 }
 ```
 
-## 9. Checkout client protocol
+Errors are relayed from the strict downstream verification/recording workflow.
 
-### 9.1 Ordinary cart checkout
+## 10. Cross-resource workflows
 
-1. Fetch `GET /payment_networks` and present exactly the returned methods.
-2. Re-read every cart product and inventory; do not permit a product with recurring fields in the cart.
-3. Require a valid/refreshable customer token.
-4. Call `POST /checkout` with product IDs, quantities, selected network, and preferably `response_mode: "json"` for a real popup launch.
-5. Submit `fields` to `action_url` in the controlled payment window, or render the returned HTML.
-6. Retain `checkout_id` and `checkout_reference` before gateway navigation.
-7. Poll authenticated `/checkout/status/{checkout_id}` with a bounded interval.
-8. Treat `PINGBIZ_ESTORE_CHECKOUT_COMPLETE` only as a trigger for an immediate status refresh.
-9. Accept success only when status says `complete: true` and `status: "S"`.
-10. Clear the cart only after authoritative success.
-11. Keep the return page/popup visible long enough for the customer to read its result; do not close merely because a checkout ID was detected.
-12. On timeout or persistent `R`, preserve cart/summary and show recovery guidance.
+### 10.1 Customer signup and login
 
-### 9.2 Subscription enrollment
+A normal customer onboarding sequence is:
 
-1. Display approved recurring products separately or with a clear Subscribe action; do not add them to the ordinary cart.
-2. Re-read product and inventory, then call `POST /subscribe` with one product and quantity.
-3. Open/render the returned tokenization redirect HTML.
-4. Retain the checkout ID from the recurring return/notify URL or HTML data.
-5. Poll the same authenticated `/checkout/status/{checkout_id}` endpoint.
-6. Treat `recurring_checkout_status` as progress detail, but use top-level `S`, `F`, or `U` for terminal UI handling.
-7. Accept subscription success only after status `S` and an order ID; then re-read order items and require the recurring item to contain a schedule reference and `ACTIVE`/terminal recurring state.
-8. Do not expect a one-time `Payment` row for subscription creation.
-9. Recurring execution notifications happen server-to-server; customer UIs observe current schedule state through order items.
+1. Browser calls public `POST /customer` without `id`.
+2. eStore validates billing address, phone, login input, and email.
+3. eStore creates the ESTORE Keycloak account using its confidential service credentials.
+4. eStore creates the business `Customer` in its configured merchant/store and records the Keycloak subject as the business `username` mapping.
+5. Browser calls `/login` or obtains an ESTORE access token through an appropriate Keycloak browser flow.
+6. Browser sends the access token as `Authorization: Bearer ...`.
+7. `GET /user` or `GET /customer` resolves the business profile by configured merchant + configured store + token subject.
 
-A suitable iframe sandbox for HTML mode remains:
+No browser-supplied merchant/store/customer identifier establishes customer scope.
 
-```html
-sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation-by-user-activation"
-```
+### 10.2 Public catalog and availability
 
-Use the narrowest sandbox that still permits the configured PaymentAsia flow. Return pages use `postMessage(..., '*')`; validate message source/window where possible and never treat message fields as payment authority.
+A normal storefront catalog sequence is:
 
-## 10. Customer-token lifecycle expected by the reference UI
+1. `GET /store` loads configured store presentation data.
+2. `GET /payment_networks` loads enabled checkout methods.
+3. `GET /products` loads only currently approved configured-store products; eStore adds each product's file metadata.
+4. `/image/{file_id}` or `/download?file_id=...` retrieves bytes only after revalidating the file's approved parent product.
+5. `GET /inventories?product_id=...` returns every location row for that approved product.
+6. Storefront computes displayed availability as the sum of rows; `[]` means zero.
 
-The reference implementation stores the following in `sessionStorage`:
+A product takedown from approved state becomes invisible to product/file/media/inventory scope validation even when a caller knows its numeric IDs.
 
-- `ACCESS_TOKEN`
-- `REFRESH_TOKEN`
-- `EXPIRY`
-- `REFRESH_EXPIRY`
-- `USER`
+### 10.3 Standard checkout authority flow
 
-It stores expiries five seconds early, refreshes through `POST /refresh` before authenticated calls, and clears the session on refresh expiry/failure. Its `AuthGuard` checks for a valid/refreshable token before protected routes.
+A complete one-time checkout is:
 
-A customized client may use an equivalent secure implementation. Native apps should use platform secure storage. A web app must never move PingBusiness merchant credentials into browser storage.
+1. Authenticated customer selects ordinary products and quantities plus one merchant-enabled PaymentAsia network.
+2. Browser calls `POST /checkout` with IDs/quantities only; it does not provide authoritative prices.
+3. eStore re-reads each approved product and its inventory, rejects subscription products, validates quantity/availability, and calculates current amounts.
+4. eStore creates an immutable status-`C` order-less intent containing the server-derived cart snapshot.
+5. eStore calls `biz-app /pa/checkout` with the intent and exact eStore callback URLs.
+6. `biz-app` validates the snapshot and payment-network rules, selects the persisted store payment mode, obtains signed hosted form fields from the correct PaymentAsia helper, and records trusted checkout launch/approval state.
+7. eStore returns auto-submit HTML or structured popup launch JSON.
+8. Customer completes PaymentAsia hosted checkout.
+9. PaymentAsia sends server notify and may navigate the browser to the return URL.
+10. Strict notify forwards the callback to `biz-app /paymentasia/record_payment` for signature verification and transactional finalization.
+11. `biz-app` creates the order only on trusted completion, creates immutable order items from the snapshot, commits inventory, records the payment, and updates intent/order state.
+12. Browser return renders current durable state and attempts to notify the storefront window.
+13. Storefront confirms through authenticated `/checkout/status/{checkout_id}` and then reads `/order...` and `/payment...` resources.
 
-## 11. Product media convention
+No order is created merely because checkout was launched.
 
-The reference storefront selects images by MIME type and prefers a file whose description is exactly:
+### 10.4 Subscription checkout authority flow
 
-```text
-__PINGBIZ_MAIN_TITLE_IMAGE__
-```
+A complete subscription start is:
 
-If none exists, it uses the first image file. Non-image files are offered as downloads. This marker is a reference-UI convention, not a separate endpoint guarantee.
+1. Authenticated customer selects exactly one approved recurring product and quantity.
+2. Browser calls `POST /subscribe`.
+3. eStore re-reads product/inventory, validates complete recurring terms, calculates amount, requires HKD and merchant-enabled `CreditCard`, and sets recurring start date to the next Hong Kong calendar date.
+4. eStore creates an immutable status-`C` order-less subscription intent.
+5. eStore calls `biz-app /recurring/checkout` with tokenization return, tokenization notify, and recurring-payment notify URLs.
+6. `biz-app` selects/persists the correct PaymentAsia environment and obtains an accepted tokenization redirect.
+7. eStore redirects the customer browser to PaymentAsia card verification.
+8. Unsigned browser return is navigation-only; signed notify/return is submitted to `biz-app /recurring/tokenization/record`.
+9. Trusted tokenization completion creates/finalizes the subscription order and exactly one recurring order item without manufacturing a one-time `Payment` row for schedule acceptance.
+10. Later PaymentAsia recurring executions are sent to `/recurring/payment/notify`, which forwards them to `biz-app /recurring/payment/record` for strict verification/recording.
+11. Customer can observe resulting order and recurring order-item fields through the order APIs and may cancel an owned active/non-completed recurring schedule through `POST /order_item/{order_item_id}/recurring/cancel`.
 
-## 12. Security and isolation guarantees implemented by the canonical code
+### 10.5 Browser return versus notify
 
-- Customer bearer tokens authenticate only when introspection returns literal boolean `active: true` and a non-empty `sub`.
-- Customer identity is taken from the token subject and mapped to one PingBusiness customer in the configured merchant/store.
-- The merchant API key and scope identifiers remain server-side and are attached only by `estore-app`.
-- Startup resolves and validates exactly one merchant/store relationship.
-- Public catalog reads are constrained through the configured eStore scope and approved-product behavior in `biz-app`.
-- Customer profile, order, order-item, payment, and checkout-status reads verify customer ownership and configured-store scope.
-- Customer-supplied prices, totals, merchant/store/customer IDs, callback URLs, and merchant reference are not trusted.
-- Ordinary checkout and subscription checkout create order-less intents; orders are created only after trusted payment or recurring-schedule acceptance.
-- Intent caller data is immutable after creation, and `estore-app` never attempts a generic intent update.
-- Ordinary checkout approval and recurring subscription creation are each bound to a hashed server-derived snapshot.
-- One Standard checkout launch is claimed and stored by `biz-app`; identical retries do not create new launch authority.
-- Payment callbacks are forwarded server-to-server for signature verification and trusted intent locking/finalization.
-- Octopus totals must be exact HKD 0.10 increments and are rejected by trusted `biz-app` before signing when incompatible.
-- Return-page `postMessage` events are wake-up signals only; authenticated `/checkout/status` is authoritative.
-- Raw sensitive recurring tokenization material is not returned in customer-facing order-item serialization.
+Browser navigation and server notify serve different reliability roles.
 
-## 13. Client acceptance checklist
+For standard checkout:
 
-A conforming UI or mobile client must satisfy all of the following:
+- notify is strict and is the authoritative callback path;
+- browser return may be unsigned, partial, duplicated, or race notify;
+- browser return therefore attempts recording only when callback-looking fields exist and never turns a verifier failure into the visible browser page;
+- durable status is rendered from the intent and confirmed by authenticated polling.
 
-- Calls only the configured `estore-app` base URL.
-- Contains no PingBusiness merchant API key or scope headers.
-- Treats product amount/currency/cart totals as display estimates until checkout.
-- Distinguishes ordinary and recurring products from the three recurring fields; uses cart checkout only for ordinary products and `/subscribe` only for one recurring product.
-- Fetches `GET /payment_networks`, displays only those values, requires one selection, and never hard-codes or submits `UserDefine`.
-- Requires HKD and merchant-enabled CreditCard before presenting subscription enrollment.
-- Shows only products returned by the API and tolerates products becoming unavailable.
-- Sums all inventory location rows and revalidates before checkout.
-- Uses bearer auth only on customer-protected routes.
-- Refreshes or expires tokens correctly.
-- Never uses caller-supplied customer IDs to establish scope.
-- Requests media as blobs and revokes object URLs.
-- Handles JSON, HTML, and binary responses according to endpoint.
-- Treats checkout/tokenization `postMessage` as untrusted notification only.
-- Uses `response_mode: json` for robust popup launch when appropriate, retains checkout identifiers before cross-origin navigation, and does not auto-close the result window merely because an identifier exists.
-- Confirms checkout through `/checkout/status` before clearing an ordinary cart.
-- Re-reads subscription order items after success and does not expect a one-time Payment row for enrollment.
-- Preserves a recovery path for a long-running `R` checkout.
-- Does not expose unsupported order/payment mutation controls.
-- Handles `400`, `401`, `403`, `404`, `409`, `500`, and `502`, plus bodyless `204` responses.
+For recurring tokenization:
+
+- an unsigned return is navigation-only;
+- a signed return is treated as a strict tokenization callback;
+- the server notify is also strict.
+
+### 10.6 Post-purchase mutation model
+
+The storefront API intentionally does not expose customer mutations for:
+
+- creating/updating/deleting orders;
+- creating/updating/deleting order items;
+- marking delivery state;
+- creating/updating/deleting one-time payments;
+- reconciling recurring schedules;
+- adjusting recurring payment methods or provider schedule parameters;
+- altering recurring product terms after purchase.
+
+The one supported customer lifecycle mutation is cancellation of the authenticated customer's own recurring order item through `POST /order_item/{order_item_id}/recurring/cancel`. Customer ownership is checked by eStore before the request is forwarded, while `biz-app` independently enforces the eStore service's merchant/store scope and owns the provider cancellation/state transition.
+
+## 11. Security and tenant-isolation guarantees implemented by eStore
+
+- Every eStore instance is bound at startup to one merchant identifier and one store identifier.
+- Internal `biz-app` calls always use the merchant API key plus both configured scope identifiers.
+- The merchant API key and ESTORE Keycloak client secret stay server-side.
+- Customer bearer tokens are introspected through the confidential ESTORE client.
+- Token introspection fails closed unless `active` is literal boolean `true` and a subject exists.
+- Business customer mapping uses the ESTORE token subject within the configured store.
+- Customer collection queries overwrite caller-supplied customer/merchant/store filters with trusted scope.
+- Singular order/payment/order-item reads validate their parent customer/order/store context before returning data.
+- Public catalog is limited to product state `A` and the configured store.
+- Product files and bytes revalidate the current approved parent product before exposure.
+- Product review notes are not exposed to eStore actors.
+- Checkout prices and line totals are re-derived from current approved product data, not accepted from the browser.
+- Checkout verifies current inventory before creating the intent/launching PaymentAsia.
+- Standard carts reject recurring products; subscription checkout rejects ordinary products.
+- Selected standard payment network is checked against the merchant's current PaymentAsia allow-list.
+- Subscription checkout requires `CreditCard` in the allow-list.
+- eStore does not connect directly to PaymentAsia helpers; trusted provider environment routing remains centralized in `biz-app`.
+- Provider callback routes delegate signature/result verification to `biz-app` rather than trusting public callback reachability.
+- Customer order/payment records remain read-only except for the dedicated recurring cancellation action.
+- Customer recurring cancellation reuses the existing order-item -> order -> authenticated-customer ownership validation before the action is forwarded to `biz-app`.
+- Checkout HTML is `no-store` and can receive an explicit frame-ancestor policy.
+
+## 12. Integration and operational considerations
+
+### 12.1 API shape
+
+- There is no URL version prefix.
+- Collection endpoints are not paginated by eStore.
+- Most JSON business responses preserve the current `biz-app` representation rather than translating to a separate eStore resource version.
+- Public and customer-scoped routes coexist in one API; clients must not infer authentication from the resource noun alone.
+- `POST /customer` changes authentication requirements depending on whether `id` is present: create is public; update is customer-authenticated.
+
+### 12.2 Customer and Keycloak consistency
+
+- Customer signup spans Keycloak and `biz-app`; there is no distributed transaction. Rollback of a newly created Keycloak user is compensating/best-effort.
+- Customer profile update commits the business change before Keycloak profile synchronization. A Keycloak sync failure is reported as a successful business update with warning text.
+- Password changes affect Keycloak only and require current-password verification.
+- Business `Customer.username` is a Keycloak subject mapping, not a human-readable login name.
+
+### 12.3 Catalog and inventory
+
+- Product/file visibility can change after a customer has loaded a page; checkout re-reads product and inventory before launch.
+- Displayed availability is a sum of rows and can change between display and finalization.
+- EStore prevents checkout when current summed inventory is below requested quantity, but authoritative final inventory commitment occurs downstream during trusted checkout completion.
+- An empty inventory list means availability zero.
+
+### 12.4 Payment/browser behavior
+
+- `POST /checkout` defaults to HTML, not JSON.
+- Popup integrations should request `response_mode=json` and submit the returned hosted-payment form from the popup document.
+- The return page's `postMessage` uses `'*'` as the target origin; it is only a wake-up/status-delivery mechanism. The storefront must confirm authenticated checkout state rather than treating the message as payment authority.
+- `ESTORE_PUBLIC_BASE_URL` is the clearest way to guarantee provider callback URLs use the intended public origin. When absent, forwarded host/proto or request origin is used.
+- If proxy headers are trusted, deployment must ensure only the intended reverse proxy can supply them.
+
+### 12.5 Subscription behavior
+
+- `POST /subscribe` is single-product only.
+- Subscription product currency must be HKD in the current eStore recurring flow.
+- The recurring start date is not browser-selectable; it is the next Hong Kong calendar date.
+- Only CreditCard is used for subscription tokenization.
+- The public eStore surface allows an authenticated customer to cancel an owned subscription through `POST /order_item/{order_item_id}/recurring/cancel`. Change-card/adjustment and reconciliation remain outside the customer eStore API.
+
+### 12.6 Health and dependencies
+
+`GET /health` confirms only that the Flask process can answer the route. It does not prove:
+
+- Keycloak reachability;
+- `biz-app` reachability;
+- merchant/store configuration validity after startup;
+- PaymentAsia helper/gateway availability.
+
+Deployment monitoring should add dependency-aware probes where required.
+
+## 13. Client and integration acceptance checklist
+
+A conforming storefront UI or integrating client should satisfy all of the following:
+
+- Uses HTTPS in production.
+- Never embeds `PINGBIZ_MERCHANT_API_KEY` or `ESTORE_CLIENT_SECRET` in browser/mobile client code.
+- Uses ESTORE customer access tokens only for customer-scoped routes.
+- Does not send PingBusiness merchant API-key headers from the browser.
+- Treats the configured eStore deployment as one merchant/store scope and does not offer a client-side tenant selector for the same backend instance.
+- Registers customers through public `POST /customer` and keeps the returned/access-token subject mapping opaque.
+- Supplies non-empty billing address and phone at signup.
+- Uses a deliverable syntactically valid email address at signup/profile edit.
+- Uses `/customer/update_password` rather than trying to edit password through `/customer`.
+- Uses `/payment_networks` to present only currently enabled standard checkout methods.
+- Treats product state outside `A` as unavailable to storefront customers.
+- Uses the `files` array returned on product reads and `/image`/`/download` for file bytes instead of constructing a URL from `location`.
+- Computes displayed availability as the sum of `/inventories` rows and treats `[]` as zero.
+- Does not send authoritative prices, totals, recurring terms, or recurring start date to `/checkout` or `/subscribe`.
+- Keeps subscription products out of the ordinary cart and uses `/subscribe` for them.
+- Sends one enabled exact PaymentAsia network name to `/checkout`.
+- Handles both checkout launch modes: default HTML and explicit `response_mode=json`.
+- Treats successful checkout launch/tokenization redirect as processing, not purchase success.
+- Keeps polling `/checkout/status/{checkout_id}` while status is `C`, `R`, or another non-terminal state.
+- Treats `S` as successful, `F` as failed, and `U` as uncertain/reconciliation state.
+- Does not rely solely on `postMessage` delivery from the browser return page.
+- Reads finalized orders/order items/payments through authenticated customer routes after completion.
+- Does not attempt direct customer mutation of orders, order items, delivery state, payments, or recurring schedules except through the dedicated owned-subscription cancellation action.
+- Uses `POST /order_item/{order_item_id}/recurring/cancel` only for an order item obtained within the authenticated customer's own order scope, and handles idempotent already-cancelled responses.
+- Handles callback/return pages as provider/browser plumbing rather than customer-authenticated business APIs.
+- Configures the reverse proxy/public base URL so PaymentAsia can reach the exact generated callback routes.
+- Adds production monitoring for Keycloak, `biz-app`, and payment dependencies beyond the simple `/health` liveness endpoint.
+
