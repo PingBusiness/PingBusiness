@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 
-APP_PATH = Path(__file__).resolve().parents[1] / "app.py"
+ROOT = Path(__file__).resolve().parents[3]
+APP_PATH = ROOT / "app" / "estore" / "app.py"
 
 
 class FakeResponse:
