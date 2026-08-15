@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install this in the repository where the merchant-store UI is developed —
+# currently kaicheung-pingme/merchant-store — as
+# .github/workflows/merchant-store-ui-sync-trigger.yml
+#
+# It tells PingBusiness/PingBusiness that the UI moved. The receiving workflow
+# there (.github/workflows/sync-merchant-store-ui.yml) does the mirroring,
+# validates the result, and opens a pull request. Nothing is pushed straight to
+# the kit's default branch.
+#
+# Setup: add a secret KIT_SYNC_TOKEN holding a token that can dispatch to
+# PingBusiness/PingBusiness. A fine-grained PAT scoped to that one repository
+# with "Contents: read and write" is enough — repository_dispatch is part of the
+# contents permission. The token needs no access to this repository beyond what
+# the workflow already has.
+#
+# Without this file the kit still converges: the receiving workflow runs on a
+# daily schedule and can be run on demand. This only makes it immediate.
+
+name: Notify vibe coding kit of UI changes
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'ui/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify-vibe-kit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch to the vibe coding kit
+        env:
+          GH_TOKEN: ${{ secrets.KIT_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::KIT_SYNC_TOKEN is not set, so the kit cannot be notified. \
+          Add it, or rely on the kit's daily scheduled sync."
+            exit 1
+          fi
+          # The receiving workflow syncs exactly this commit rather than whatever
+          # master happens to point at by the time it runs, so a burst of merges
+          # cannot leave the mirror on a commit nobody asked for.
+          jq -n \
+            --arg sha "${GITHUB_SHA}" \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            '{event_type: "merchant-store-ui-updated",
+              client_payload: {sha: $sha, repository: $repository}}' \
+          | gh api repos/PingBusiness/PingBusiness/dispatches --method POST --input -
+          echo "Notified PingBusiness/PingBusiness about ${GITHUB_SHA}."

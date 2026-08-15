@@ -1,0 +1,275 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Mirrors the canonical merchant-store UI into the vibe coding kit's reference
+# storefront and opens a pull request with the result.
+#
+# The kit's `source/merchant-store` is a reference storefront — the thing a
+# merchant starts from, never a merchant's own store. This workflow keeps that
+# reference in step with the repository where the UI is actually developed.
+#
+# Setup:
+#   - secret UPSTREAM_UI_TOKEN: a token with read access to the upstream repo.
+#     A fine-grained PAT scoped to that one repository with "Contents: read" is
+#     enough. Required because the upstream repository is private.
+#   - optional secret SYNC_PR_TOKEN: a token used to open the pull request. Set
+#     it if you want the kit's own validation workflow to run on the resulting
+#     PR — pull requests opened with the default GITHUB_TOKEN deliberately do
+#     not trigger further workflow runs. This job re-runs those same checks
+#     inline regardless, so leaving it unset is safe, just quieter.
+#   - to sync on every upstream merge, install the companion trigger workflow
+#     from merchant-store-vibe-coding-kit/github/merchant-store-ui-sync-trigger.yml
+#     into the upstream repository. Until then the schedule below picks changes
+#     up once a day, and the workflow can always be run on demand.
+
+name: Sync merchant-store UI
+
+on:
+  repository_dispatch:
+    types: [merchant-store-ui-updated]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Upstream ref to sync (branch, tag, or commit SHA)
+        required: false
+        default: master
+  schedule:
+    # Safety net so the mirror still converges if the upstream trigger workflow
+    # is absent, disabled, or its token has expired.
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-merchant-store-ui
+  cancel-in-progress: false
+
+env:
+  KIT_DIR: merchant-store-vibe-coding-kit
+  TARGET: merchant-store-vibe-coding-kit/source/merchant-store
+  UPSTREAM_REPO: kaicheung-pingme/merchant-store
+  UPSTREAM_PATH: ui
+  SYNC_BRANCH: automation/merchant-store-ui-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the kit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out the upstream UI
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref: ${{ github.event.client_payload.sha || inputs.ref || 'master' }}
+          token: ${{ secrets.UPSTREAM_UI_TOKEN }}
+          path: .upstream
+          fetch-depth: 1
+
+      - name: Record what is being synced
+        id: upstream
+        run: |
+          set -euo pipefail
+          if [ ! -d ".upstream/${UPSTREAM_PATH}" ]; then
+            echo "::error::${UPSTREAM_REPO} has no ${UPSTREAM_PATH}/ directory. If the UI moved, update UPSTREAM_PATH in this workflow."
+            exit 1
+          fi
+          cd .upstream
+          {
+            echo "sha=$(git rev-parse HEAD)"
+            echo "short_sha=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          # Kept out of $GITHUB_OUTPUT and out of every shell expansion: a commit
+          # subject is attacker-shaped text that reaches this job from another
+          # repository. It is read back only by Python, which quotes it safely.
+          git log -1 --pretty=%s > "${GITHUB_WORKSPACE}/.upstream-subject.txt"
+
+      - name: Mirror the upstream UI into the reference storefront
+        run: |
+          set -euo pipefail
+          # LICENSE and NOTICE are kit-owned: validate-kit.py requires each
+          # redistributable component to carry byte-identical copies of the kit's
+          # own files so the component stands alone. Upstream has no reason to
+          # track them, so they are excluded from the mirror and restored after.
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'LICENSE' \
+            --exclude 'NOTICE' \
+            ".upstream/${UPSTREAM_PATH}/" "${TARGET}/"
+          cp "${KIT_DIR}/LICENSE" "${TARGET}/LICENSE"
+          cp "${KIT_DIR}/NOTICE" "${TARGET}/NOTICE"
+
+      - name: Verify the storefront still satisfies the kit contract
+        run: |
+          set -euo pipefail
+          # A mirror with --delete can remove a file the kit depends on but
+          # upstream never had. Fail here with a readable message rather than
+          # letting the container build fail later for an unrelated-looking reason.
+          missing=0
+          for required in Dockerfile docker-entrypoint.sh package.json package-lock.json LICENSE NOTICE; do
+            if [ ! -f "${TARGET}/${required}" ]; then
+              echo "::error::${TARGET}/${required} is missing after the sync. Upstream ${UPSTREAM_PATH}/ must carry it, or it must be added to the kit-owned exclude list."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Stop early if the mirror changed nothing
+        id: changes
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "${TARGET}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Reference storefront already matches ${UPSTREAM_REPO}@${{ steps.upstream.outputs.short_sha }}."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat -- "${TARGET}"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.changes.outputs.changed == 'true'
+        with:
+          python-version: '3.13'
+
+      - name: Validate the kit
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: merchant-store-vibe-coding-kit
+        run: |
+          set -euo pipefail
+          pip install PyYAML==6.0.2
+          ./scripts/validate.sh
+
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.changed == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: merchant-store-vibe-coding-kit/source/merchant-store/package-lock.json
+
+      - name: Build the storefront
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: merchant-store-vibe-coding-kit/source/merchant-store
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build:prod
+
+      - name: Scan the storefront for secrets
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          # The storefront is public by construction. This is the gate that keeps
+          # an upstream commit from carrying a credential into the kit.
+          python3 "${KIT_DIR}/scripts/scan-frontend-secrets.py" "${TARGET}" "${TARGET}/dist"
+          "${KIT_DIR}/scripts/test-ui-runtime-config.sh"
+
+      - name: Build the storefront image
+        if: steps.changes.outputs.changed == 'true'
+        run: docker build -t pingbusiness/merchant-store:sync "${TARGET}"
+
+      - name: Record provenance and compose the pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+          UPSTREAM_SHORT: ${{ steps.upstream.outputs.short_sha }}
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, os, pathlib
+
+          repo = os.environ["UPSTREAM_REPO"]
+          path = os.environ["UPSTREAM_PATH"]
+          sha = os.environ["UPSTREAM_SHA"]
+          short = os.environ["UPSTREAM_SHORT"]
+          kit = pathlib.Path(os.environ["KIT_DIR"])
+          subject = pathlib.Path(".upstream-subject.txt").read_text(encoding="utf-8").strip()
+          today = datetime.date.today().isoformat()
+          commit_url = f"https://github.com/{repo}/commit/{sha}"
+
+          block = (
+              "<!-- merchant-store-ui-sync:start -->\n"
+              "## Reference storefront upstream\n\n"
+              f"`source/merchant-store` mirrors `{path}/` from "
+              f"[{repo}](https://github.com/{repo}) and is kept in step by the "
+              "`Sync merchant-store UI` workflow. Edit the storefront there, not here.\n\n"
+              "| Field | Value |\n|---|---|\n"
+              f"| Upstream | `{repo}` |\n"
+              f"| Path | `{path}/` |\n"
+              f"| Commit | `{sha}` |\n"
+              f"| Synced | {today} |\n"
+              "<!-- merchant-store-ui-sync:end -->\n"
+          )
+          manifest = kit / "SOURCE_MANIFEST.md"
+          text = manifest.read_text(encoding="utf-8")
+          start, end = "<!-- merchant-store-ui-sync:start -->", "<!-- merchant-store-ui-sync:end -->"
+          if start in text and end in text:
+              head, _, rest = text.partition(start)
+              _, _, tail = rest.partition(end)
+              text = head + block + tail.lstrip("\n")
+          else:
+              text = text.rstrip("\n") + "\n\n" + block
+          manifest.write_text(text, encoding="utf-8")
+
+          pathlib.Path("pr-title.txt").write_text(
+              f"chore(ui): sync reference storefront from {repo}@{short}\n", encoding="utf-8")
+          pathlib.Path("pr-body.md").write_text(f"""\
+          Mirrors `{path}/` from [{repo}](https://github.com/{repo}) into the kit's reference storefront.
+
+          | | |
+          |---|---|
+          | Upstream commit | [`{short}`]({commit_url}) |
+          | Subject | {subject} |
+          | Trigger | `{os.environ["TRIGGER"]}` |
+
+          Verified before this pull request was opened:
+
+          - `scripts/validate.sh` (full kit validation)
+          - `npm ci` and `npm run build:prod`
+          - `scripts/scan-frontend-secrets.py` over both source and built output
+          - `scripts/test-ui-runtime-config.sh`
+          - `docker build` of the storefront image
+
+          `LICENSE` and `NOTICE` are kit-owned and restored from the kit root after
+          each mirror, so the storefront stays independently redistributable.
+          """.replace("\n          ", "\n"), encoding="utf-8")
+          PY
+
+      - name: Open or update the pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          UPSTREAM_SHORT: ${{ steps.upstream.outputs.short_sha }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${SYNC_BRANCH}"
+          git add -A "${TARGET}" "${KIT_DIR}/SOURCE_MANIFEST.md"
+          git commit --file - <<COMMIT
+          chore(ui): sync reference storefront from ${UPSTREAM_REPO}@${UPSTREAM_SHORT}
+
+          Mirrors ${UPSTREAM_PATH}/ from ${UPSTREAM_REPO} into the kit's reference
+          storefront, validated before the pull request was opened.
+
+          Upstream commit: https://github.com/${UPSTREAM_REPO}/commit/${UPSTREAM_SHA}
+          COMMIT
+          # One long-lived branch, so repeated syncs update a single pull request
+          # instead of accumulating one per upstream commit.
+          git push --force-with-lease origin "${SYNC_BRANCH}"
+
+          if gh pr view "${SYNC_BRANCH}" --json number >/dev/null 2>&1; then
+            gh pr edit "${SYNC_BRANCH}" --title "$(cat pr-title.txt)" --body-file pr-body.md
+            echo "Updated the existing pull request."
+          else
+            gh pr create \
+              --base "${{ github.event.repository.default_branch }}" \
+              --head "${SYNC_BRANCH}" \
+              --title "$(cat pr-title.txt)" \
+              --body-file pr-body.md
+          fi
