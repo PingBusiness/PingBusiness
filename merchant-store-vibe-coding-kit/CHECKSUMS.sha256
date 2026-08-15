@@ -55,7 +55,7 @@ cfee9cdc397a0fa77aa37e6e0c380f07a643d7bc0d1823b2a2d5bfdc77a4975f  ./design/DESIG
 afd0daba8f9b3bffc494c6ef31d81979843f3544069baa126e3dbf3aa7b0b55f  ./design/MERCHANT_DESIGN_BRIEF.yaml
 f7e1de87165a99114aaaf65b2cbf926b2c26df677a71b9fb66b8763dd8fc7075  ./docs/ARCHITECTURE.md
 771471063fdea379bd7b803e0f055b867ce8b3c3be3978ed374f036296f7df9c  ./docs/BACKUP_AND_RESTORE.md
-e087fc0fc2a973bc7021abcd2d8fddf2d11a5989a0d5719f36e5b106ee94d628  ./docs/ESTORE_APP_API_SPEC.md
+ce1109ca0dcb12cfab08858f59bf52dcbb3717df975e60619301823cf9e9dc79  ./docs/ESTORE_APP_API_SPEC.md
 bf5285e711bc7dbe18012a75d64b01930f4df1eb0578c711052c0f9aed2877b0  ./docs/MERCHANT_STORE_REFERENCE_ARCHITECTURE.md
 316386cd7d293d91414c6e17fe1160c9a27d514c783117664f5babf91a66fcac  ./docs/OPERATIONS.md
 e4ebb652c355a8f4e6485776755e905a703999ce5403a6a0835f500a3a551574  ./docs/PLATFORM_SUPPORT.md
@@ -81,7 +81,7 @@ db93650b6a5e82362ccbaa778203213a8ceacb3f278aef632ebc775358e2b3b5  ./llms.txt
 ea92c8fadbfdf127d7b0cc13314dc01904964b171f91c88ca0e2c37892aae936  ./scripts/public-smoke-test.py
 f3069e66ffdc23a298abcae97bd1e13865bb81403f130467993e70015ae5a0e8  ./scripts/scan-frontend-secrets.py
 1d192a3ba20e623b41c2749c2353063cbd4c4c9a5ce76023692c06484f03e237  ./scripts/test-ui-runtime-config.sh
-145e2541f81ffb4920cacf9c40bc9294f41ef5687380bd4f4e82d159a8057b6a  ./scripts/validate-kit.py
+faf558afafd83c649ea9273aefebc92c00526e056b63319099071abf7ad84488  ./scripts/validate-kit.py
 d2f67325e86ec565a465ee3d94329fd22f76995fac671384752fb0bed34667a2  ./scripts/validate.sh
 68ac115a8067d4985f501c0f2d43b5d13fdfecbb566afc8b7d5a74626654ce06  ./source/estore-app/.dockerignore
 47a23ec3a741f47e3857f544441cdde89608645a6c10d7d83f609bbc39ce3382  ./source/estore-app/01-build.sh
@@ -91,7 +91,7 @@ cb25c1838e338367945ebfaf118ff8cbf37f8d75db52d5146eddc4beb413f2e6  ./source/estor
 2b739872a22ae498f7fb014770ebbdabb533e8dde7e0c837422533f78d9a0132  ./source/estore-app/Dockerfile
 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  ./source/estore-app/LICENSE
 f8acfb2b24506df5b3ce2b33f890768c332f2522e3d39309bac84fb2deb198ca  ./source/estore-app/NOTICE
-15aa437974087b5e3e4a8333f40863bc4529e6c90c9a0b62416dac987f2bfe84  ./source/estore-app/app.py
+c83b072a8787e6c2dc16cac6599964aa359d0bfd875216be0c1f6c4ec108c075  ./source/estore-app/app.py
 231ace13723c7d76f6cb1ace0421deb3d776944dd89bb329ff0b568dad8a5030  ./source/estore-app/requirements.txt
 bd7ce730314e19146efc3c15655693c06c180bcf33945fae45948c6120aa0c0c  ./source/estore-app/tests/estore_review_test_utils.py
 687f7e71822bfc85e010fe5ddd0e77bc070b968df3bc53389c8e57906b009d7e  ./source/estore-app/tests/estore_test_cleanup.py
@@ -99,8 +99,9 @@ bd7ce730314e19146efc3c15655693c06c180bcf33945fae45948c6120aa0c0c  ./source/estor
 d98f11568b332183a68c071233c4337c1192ebec9e32cbd40bb79ad84c898c56  ./source/estore-app/tests/test1.py
 aaaf44eaa8710eb891f47740613c6cca4f957951a393f5a187adb805a99331fd  ./source/estore-app/tests/test10.py
 97282da7c016f3d9dd52657119ce8c93e051e798153dcf19ccbaccc358651194  ./source/estore-app/tests/test11.py
-73bda5056fce121dce193171cf9463fa23cffc99798ece0c9075365d5bda1211  ./source/estore-app/tests/test12.py
-ac31f31a7b050b87df23b57ae56326c3c516076f09fe471e5a3bf250f40b8881  ./source/estore-app/tests/test13.py
+a6434f03c444e011fb7a37120827a8de26e01daace26c1545cb6bdb011719da2  ./source/estore-app/tests/test12.py
+733259625515145a15d1c964472a4a817ba9c82f240dde2b3e785c94e9901e57  ./source/estore-app/tests/test13.py
+401cd41b3c6db73b11818f092c82a72f58f0b59a2b50a8d0d8ed03e229201183  ./source/estore-app/tests/test14.py
 18628eaa81ee5ffa226322de38dc40d8eb4d7dd9e71382d308cb519d4aed068b  ./source/estore-app/tests/test2.py
 ca0a9fa8a21b7cc0808b342db367d505953789b041868cdbd61e370ffd7f35e9  ./source/estore-app/tests/test3.py
 0b4975049bda95821dfa40ca0a8b734a3a7cf8a7502847436f95b24a253f90ac  ./source/estore-app/tests/test4.py
@@ -175,7 +176,7 @@ d342ea1210a164abb21bfe9e2d01c630fafc28388e01a1a11b3572c5fcf2f227  ./source/merch
 bede47de09dee0a0edf0e69528be0c6df5fd61bd2db2db95d7d4401dbaeb10d3  ./source/merchant-store/src/app/product/product.component.ts
 8fc420197f0677ebc8148d0b10e3020c1b7c6fca3e0a6558adbfd48420ae821d  ./source/merchant-store/src/app/services/auth.interceptor.ts
 59265eaa11e2898b6cba9056042c41c570f9dd575a0b1fa55a1e5d728d5da0e4  ./source/merchant-store/src/app/services/cart.service.ts
-0dd898f2c7c76a6347d078b06dba702de78aae88fcc057c50f2c00012ed12598  ./source/merchant-store/src/app/services/estore-api.service.ts
+4db4454500991d1683db7b49bcd54e88891ab4bf1844f54c9c681b4fc3d6c40f  ./source/merchant-store/src/app/services/estore-api.service.ts
 b833ad02026d921e6e53e9668255636536ec708b5fa3caf6635b50235b709694  ./source/merchant-store/src/app/services/keycloak.service.ts
 c697807c838d333eb933d2b26275be89c5fd9ceb77068ed3063d76e35e4b3e77  ./source/merchant-store/src/app/services/toast.service.ts
 014539cbfc1fc4728f08624a2a497cd0a32bd4ede4b83b67687f497f6da0fa0c  ./source/merchant-store/src/app/signin/signin.component.css
@@ -187,9 +188,9 @@ c3e514fb419590b5dc6b9e12674327d305682e1caac50497acf132dcff8bdd2f  ./source/merch
 f596970d67ad6aeb61838e3eb0431eb79b84ee9e2298a6dd6778f8db0fd8d51b  ./source/merchant-store/src/app/subscription-checkout/subscription-checkout.component.css
 91a808ef182fb88f4966fcfa44a805d616394c61881859da65873dae6ff0e09c  ./source/merchant-store/src/app/subscription-checkout/subscription-checkout.component.html
 790361348b7ffe559d54451f3e8eca8c76d4d9993da4c424c3f10584ff986bfa  ./source/merchant-store/src/app/subscription-checkout/subscription-checkout.component.ts
-a8b6cafe56b4c465250b98ef8a0e9020797f10324debd28c88e6fd7010bd4578  ./source/merchant-store/src/app/subscriptions/subscriptions.component.css
-3cf22f0b7d736eb79ace945f786ca8f0477cc80c1511f36454436e0ac60b1ce3  ./source/merchant-store/src/app/subscriptions/subscriptions.component.html
-5337ede0766d36ff575a3213d8aad0d3a96d57913d461307b29b79a757070cf3  ./source/merchant-store/src/app/subscriptions/subscriptions.component.ts
+e8d0feb487eec565417b74eac93bc005bfca72956540010becccea6648105c64  ./source/merchant-store/src/app/subscriptions/subscriptions.component.css
+5245052f11093d45e9b6eabd85dda33d20e43435dee8f460d3438b8ad07a629c  ./source/merchant-store/src/app/subscriptions/subscriptions.component.html
+fd03107d957bff06b4baa9a0e544ca014a33e8c94d59f940a264b5d1ef6d6db9  ./source/merchant-store/src/app/subscriptions/subscriptions.component.ts
 62be69ad23c7d123ada94b364df8c9cbcfcb20430aa913203c25707bfa757384  ./source/merchant-store/src/app/utils.ts
 ee3374fdba730c5cd82d106a906a8ea1a1b051eb639be667d4c3ee4a28286550  ./source/merchant-store/src/assets/arrow-left-small.svg
 bf05fec7ca6361b8e450867035327f641017f279852da48da41a7a281035be1d  ./source/merchant-store/src/assets/arrow-right-small.svg
