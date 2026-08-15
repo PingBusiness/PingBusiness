@@ -7,7 +7,8 @@ intent by writing status after the launch response. biz-app owns that transition
 from pathlib import Path
 
 
-APP_PATH = Path(__file__).resolve().parents[1] / "app.py"
+ROOT = Path(__file__).resolve().parents[3]
+APP_PATH = ROOT / "app" / "estore" / "app.py"
 
 
 def main() -> int:
