@@ -3,14 +3,14 @@
 ## Canonical public source
 
 Clone `https://github.com/PingBusiness/PingBusiness` at branch `main`. The kit is not the repository root; it is located at `/merchant-store-vibe-coding-kit`. The browser-facing tree URL `https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit` is for navigation and must not be used as a Git clone URL. Pin the exact commit deployed in the final report.
-Deploy a Ping Business merchant store using the public vibe coding kit repository supplied by the merchant.
+Deploy a PingBusiness merchant store using the public vibe coding kit repository supplied by the merchant.
 
 You must follow `deployment/DEPLOY_AGENT.md` in the kit.
 
 Collect only these merchant-facing values:
 
 - hosting platform: Northflank, Railway, the merchant's own server (Compose with a real hostname, per `deployment/SELF_HOSTING.md`), or the local Compose preview
-- Ping Business environment: staging or production
+- PingBusiness environment: staging or production
 - store domain
 - merchant identifier
 - store identifier

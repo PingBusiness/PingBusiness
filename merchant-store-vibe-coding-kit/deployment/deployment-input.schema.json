@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pingbusiness.org/schemas/merchant-store-deployment-input-v2.json",
-  "title": "Ping Business merchant-store deployment input",
+  "title": "PingBusiness merchant-store deployment input",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38,7 +38,7 @@
         "production"
       ],
       "default": "staging",
-      "description": "Selects the Ping Business biz-app endpoint. Staging maps to https://biz-app.staging.pingbusiness.org; production maps to https://biz-app.pingbusiness.org."
+      "description": "Selects the PingBusiness biz-app endpoint. Staging maps to https://biz-app.staging.pingbusiness.org; production maps to https://biz-app.pingbusiness.org."
     },
     "region": {
       "type": "string",
@@ -218,7 +218,7 @@
         "bruteForceProtection": {
           "const": false,
           "default": false,
-          "description": "Intentionally disabled by current Ping Business product decision."
+          "description": "Intentionally disabled by current PingBusiness product decision."
         }
       }
     },

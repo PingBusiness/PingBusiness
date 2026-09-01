@@ -48,7 +48,7 @@ The UI must open the popup synchronously from the customer action, before asynch
 
 ## Checkout appears complete but status remains pending
 
-The UI correctly distrusts the browser return. Inspect provider notify/return logs and Ping Business verification, then continue authoritative status polling. Do not mark payment successful from a URL or message alone.
+The UI correctly distrusts the browser return. Inspect provider notify/return logs and PingBusiness verification, then continue authoritative status polling. Do not mark payment successful from a URL or message alone.
 
 ## Certificate remains pending
 

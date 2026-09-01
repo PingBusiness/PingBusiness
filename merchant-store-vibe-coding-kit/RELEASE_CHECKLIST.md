@@ -19,7 +19,7 @@
 
 - [ ] Run the merchant UI clean production build in a networked CI runner.
 - [ ] Build all Docker images.
-- [ ] Run the full Compose stack against staging Ping Business credentials.
+- [ ] Run the full Compose stack against staging PingBusiness credentials.
 - [ ] Complete customer registration, login, refresh, logout, catalogue,
       inventory, ordinary checkout, subscription, order, and payment-read tests.
 - [ ] Restore a Keycloak PostgreSQL backup into a clean environment.

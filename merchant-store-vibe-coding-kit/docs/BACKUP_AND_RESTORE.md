@@ -10,7 +10,7 @@ The merchant deployment's primary persistent state is the Keycloak PostgreSQL da
 - DNS configuration and platform resource IDs;
 - a redacted deployment report.
 
-Central product/order/payment data is maintained by Ping Business and is not stored in this merchant PostgreSQL instance.
+Central product/order/payment data is maintained by PingBusiness and is not stored in this merchant PostgreSQL instance.
 
 ## Backup policy
 

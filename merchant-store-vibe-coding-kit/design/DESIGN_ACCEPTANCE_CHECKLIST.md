@@ -17,7 +17,7 @@
 
 ## Security
 
-- [ ] Browser source/bundles/runtime config contain no Ping Business, Keycloak, database, or infrastructure secret.
+- [ ] Browser source/bundles/runtime config contain no PingBusiness, Keycloak, database, or infrastructure secret.
 - [ ] UI calls only `estore-app`.
 - [ ] No server-to-server headers are created by the browser.
 - [ ] Bearer and refresh tokens are not logged or sent to third parties.

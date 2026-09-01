@@ -224,7 +224,7 @@ def main() -> int:
     if len(merchant_api_key) < 16 or PLACEHOLDER_RE.search(merchant_api_key):
         raise InputError("merchantApiKey is missing or still a placeholder")
     if PLACEHOLDER_RE.search(merchant_identifier) or PLACEHOLDER_RE.search(store_identifier):
-        raise InputError("Ping Business merchant/store identifiers still contain placeholders")
+        raise InputError("PingBusiness merchant/store identifiers still contain placeholders")
 
     keycloak = require_object(data.get("keycloak"), "keycloak")
     if keycloak.get("bruteForceProtection", False) is not False:
@@ -509,7 +509,7 @@ def main() -> int:
     write_public(output_dir / "deployment-summary.json", json_text(summary))
 
     print(f"Prepared {platform} deployment files in {output_dir}")
-    print(f"Ping Business environment: {pingbusiness_environment}")
+    print(f"PingBusiness environment: {pingbusiness_environment}")
     print(f"Store: {store_url}")
     print("Generated credentials were written only to private files (mode 0600); values were not printed.")
     return 0

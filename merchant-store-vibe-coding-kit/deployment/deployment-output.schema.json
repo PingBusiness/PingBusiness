@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pingbusiness.org/schemas/merchant-store-deployment-output-v1.json",
-  "title": "Ping Business merchant-store deployment handoff",
+  "title": "PingBusiness merchant-store deployment handoff",
   "type": "object",
   "additionalProperties": false,
   "required": [

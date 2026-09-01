@@ -1,6 +1,6 @@
 # Railway deployment adapter
 
-This adapter lets a Railway-capable agent or Railway MCP workflow deploy the Ping Business merchant-store stack from the public vibe-kit repository.
+This adapter lets a Railway-capable agent or Railway MCP workflow deploy the PingBusiness merchant-store stack from the public vibe-kit repository.
 
 Railway supports reusable templates that capture multiple services and required variables, services from GitHub repositories or Docker images, private networking between services, custom domains, and automatic TLS. The adapter is therefore structured as an agent-readable service plan rather than a single Compose file.
 
@@ -38,7 +38,7 @@ For `platform: "railway"`, the helper writes:
 
 Do not commit `.generated/`.
 
-## Ping Business environment
+## PingBusiness environment
 
 The merchant selects only `staging` or `production`. The deployment helper derives `BIZ_APP_BASE_URL`:
 

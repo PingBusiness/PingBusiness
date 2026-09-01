@@ -1,4 +1,4 @@
-# Ping Business Merchant Store Vibe Coding Kit validation report
+# PingBusiness Merchant Store Vibe Coding Kit validation report
 
 **Version:** `1.0.0-rc3`  
 **Validation date:** 2026-07-30

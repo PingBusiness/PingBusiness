@@ -1,4 +1,4 @@
-# Ping Business Merchant Store Vibe Coding Kit
+# PingBusiness Merchant Store Vibe Coding Kit
 
 This Apache-2.0-licensed public kit supports two low-friction merchant workflows:
 
@@ -32,7 +32,7 @@ this kit and returns a complete buildable customized UI package or repository.
 ### 2. Deploy the store
 
 Open the **Deploy store** tab, choose Railway, Northflank, or your own server,
-select staging or production, and provide the store domain and Ping Business
+select staging or production, and provide the store domain and PingBusiness
 merchant/store identifiers. The generated prompt deliberately excludes the
 merchant API key. The deployment agent requests that key only when it can place
 it directly into the selected platform's protected secret system.
@@ -58,12 +58,12 @@ https://shop.example.com              public edge only
 Private network
    estore-app ----> Keycloak ----> PostgreSQL
        |
-       +---- HTTPS ----> central Ping Business biz-app
+       +---- HTTPS ----> central PingBusiness biz-app
 ```
 
 Only the edge is public. The browser calls same-origin `/api` and never receives
 merchant credentials, the merchant API key, the Keycloak client secret,
-database credentials, or central Ping Business authentication headers.
+database credentials, or central PingBusiness authentication headers.
 
 ## Supported deployment targets
 
@@ -120,8 +120,8 @@ Original kit content is licensed under Apache License 2.0. Merchants may use,
 modify, and redistribute the merchant store and `estore-app`, including for
 commercial deployments, subject to that license and third-party notices.
 
-The license does not provide access to the hosted Ping Business `biz-app`, a
-merchant account, payment processing, or Ping Business trademarks. Those remain
+The license does not provide access to the hosted PingBusiness `biz-app`, a
+merchant account, payment processing, or PingBusiness trademarks. Those remain
 subject to separate credentials, service terms, and trademark permissions. See
 `TRADEMARKS.md` and `THIRD_PARTY_NOTICES.md`.
 

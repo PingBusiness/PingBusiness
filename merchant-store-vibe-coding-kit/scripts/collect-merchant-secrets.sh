@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Collect the three sensitive Ping Business merchant values via masked prompts and
+# Collect the three sensitive PingBusiness merchant values via masked prompts and
 # merge them into a deployment-input JSON, WITHOUT ever echoing them to the
 # terminal, the shell history, logs, or a process-argument list.
 #

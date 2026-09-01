@@ -32,7 +32,7 @@ Collect all of these before generating anything.
 | `git` and `python3` | Used to fetch the kit and generate the deployment values. Python needs no third-party packages. |
 | A domain | A hostname you control, such as `shop.example.com`, plus the ability to edit its DNS records. |
 | Open ports | Inbound `80/tcp` and `443/tcp`, in both the OS firewall and any cloud provider security group. |
-| Ping Business credentials | Your merchant identifier, store identifier, and merchant API key, issued by Ping Business. |
+| PingBusiness credentials | Your merchant identifier, store identifier, and merchant API key, issued by PingBusiness. |
 | An email address | Used as the certificate-authority contact for expiry warnings. |
 
 ## Prepare the server

@@ -1,6 +1,6 @@
-# Ping Business Merchant Store Vibe Coding Kit
+# PingBusiness Merchant Store Vibe Coding Kit
 
-Purpose: customize and deploy a merchant-hosted Ping Business store through a
+Purpose: customize and deploy a merchant-hosted PingBusiness store through a
 conversational AI workflow.
 
 Public kit: https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit

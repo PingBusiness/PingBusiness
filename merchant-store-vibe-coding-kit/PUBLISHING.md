@@ -44,7 +44,7 @@ cd ..
 git add merchant-store-vibe-coding-kit \
         .github/workflows/merchant-store-vibe-kit-validate.yml \
         .github/instructions/merchant-store-vibe-kit.instructions.md
-git commit -m "Add Ping Business merchant-store vibe coding kit 1.0.0-rc3"
+git commit -m "Add PingBusiness merchant-store vibe coding kit 1.0.0-rc3"
 git push
 ```
 

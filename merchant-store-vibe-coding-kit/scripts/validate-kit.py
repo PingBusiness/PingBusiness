@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic static validation for the Ping Business merchant-store vibe kit."""
+"""Deterministic static validation for the PingBusiness merchant-store vibe kit."""
 from __future__ import annotations
 
 import hashlib

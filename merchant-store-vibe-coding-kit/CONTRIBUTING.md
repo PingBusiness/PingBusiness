@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions are welcome through the Ping Business repository.
+Contributions are welcome through the PingBusiness repository.
 
 By intentionally submitting a contribution to this directory, you agree that
 your contribution is provided under the Apache License, Version 2.0, unless a

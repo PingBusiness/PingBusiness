@@ -1,12 +1,12 @@
-# Governing prompt: customize a Ping Business merchant store
+# Governing prompt: customize a PingBusiness merchant store
 
-You are the implementation agent for a production Ping Business merchant storefront.
+You are the implementation agent for a production PingBusiness merchant storefront.
 
 Retrieve this repository yourself. Read `AGENTS.md`, `design/DESIGN_AGENT.md`, `docs/ESTORE_APP_API_SPEC.md`, `docs/MERCHANT_STORE_REFERENCE_ARCHITECTURE.md`, `docs/SECURITY.md`, and the complete `source/merchant-store/` tree before editing code.
 
 ## Objective
 
-Create a complete, production-buildable, branded merchant-store application by customizing `source/merchant-store/` with the supplied merchant brief and assets. Preserve the current Ping Business API, authentication, token refresh, catalogue, inventory, ordinary checkout, recurring subscription, order, and payment-read behavior.
+Create a complete, production-buildable, branded merchant-store application by customizing `source/merchant-store/` with the supplied merchant brief and assets. Preserve the current PingBusiness API, authentication, token refresh, catalogue, inventory, ordinary checkout, recurring subscription, order, and payment-read behavior.
 
 ## Source authority
 
@@ -23,8 +23,8 @@ Never use an obsolete `estore-ui` tree from another repository.
 
 - The UI calls only same-origin `/api` by default (or an explicitly approved public `estore-app` base URL).
 - Keep `ESTORE_APP_PUBLIC_URL` as runtime configuration and use `/api` for the default pipeline; do not hard-code a production host in TypeScript.
-- Never place merchant/store credentials, the Ping Business API key, Keycloak client secret, database credentials, or administrative credentials in frontend source, assets, build arguments, runtime config, logs, or reports.
-- Never set Ping Business server-to-server headers in the browser.
+- Never place merchant/store credentials, the PingBusiness API key, Keycloak client secret, database credentials, or administrative credentials in frontend source, assets, build arguments, runtime config, logs, or reports.
+- Never set PingBusiness server-to-server headers in the browser.
 - Never call central `biz-app`, PostgreSQL, Keycloak administration APIs, or PaymentAsia APIs directly from the browser.
 - Do not use raw `innerHTML` for merchant content or arbitrary assets. Treat returned PaymentAsia/estore callback HTML only through the existing controlled checkout flow.
 - Customer tokens remain sensitive browser session state. Do not log or transmit them to analytics.
@@ -227,4 +227,4 @@ bundled `deployment/` directory silently do nothing, and a regenerated
 
 ## Licensing of customized output
 
-The customized source remains under Apache License 2.0 for the Ping Business-originated code. Include copies of `LICENSE`, `NOTICE`, `TRADEMARKS.md`, and `THIRD_PARTY_NOTICES.md` in the delivered package. Document which files were changed. Merchant-supplied assets may retain separate ownership or license terms and must not be falsely relicensed.
+The customized source remains under Apache License 2.0 for the PingBusiness-originated code. Include copies of `LICENSE`, `NOTICE`, `TRADEMARKS.md`, and `THIRD_PARTY_NOTICES.md` in the delivered package. Document which files were changed. Merchant-supplied assets may retain separate ownership or license terms and must not be falsely relicensed.

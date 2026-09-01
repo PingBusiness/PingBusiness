@@ -66,7 +66,7 @@ Deployment agents may use the platform adapter requested by the merchant:
 - `deployment/compose/` for a local preview, and for self-hosting on a
   merchant-owned server per `deployment/SELF_HOSTING.md`
 
-Merchant-facing deployment forms must ask for `staging` or `production`, not a free-form `BIZ_APP_BASE_URL`. The generator maps the selected environment to the correct Ping Business endpoint.
+Merchant-facing deployment forms must ask for `staging` or `production`, not a free-form `BIZ_APP_BASE_URL`. The generator maps the selected environment to the correct PingBusiness endpoint.
 
 ## Output contracts
 

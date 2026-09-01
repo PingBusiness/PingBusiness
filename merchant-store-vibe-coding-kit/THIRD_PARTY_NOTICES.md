@@ -1,8 +1,8 @@
 # Third-party software notices
 
-The Apache-2.0 license in this directory covers the original Ping Business
+The Apache-2.0 license in this directory covers the original PingBusiness
 software, documentation, prompts, deployment templates, and scripts in this
-kit. Third-party software is not relicensed by Ping Business and remains under
+kit. Third-party software is not relicensed by PingBusiness and remains under
 its respective upstream license.
 
 The repository does not vendor `node_modules`, Python wheels, container-image

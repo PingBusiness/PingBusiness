@@ -1,10 +1,10 @@
 {
   "$schema": "https://api.northflank.com/v1/schemas/template",
   "apiVersion": "v1.2",
-  "name": "Ping Business Merchant Store",
-  "description": "Deploy a complete Ping Business merchant store with PostgreSQL, Keycloak, API, UI, and one public edge.",
+  "name": "PingBusiness Merchant Store",
+  "description": "Deploy a complete PingBusiness merchant store with PostgreSQL, Keycloak, API, UI, and one public edge.",
   "arguments": {
-    "PROJECT_NAME": "Ping Business Merchant Store",
+    "PROJECT_NAME": "PingBusiness Merchant Store",
     "REGION": "europe-west",
     "KIT_REPOSITORY_URL": "https://github.com/PingBusiness/PingBusiness",
     "KIT_REPOSITORY_BRANCH": "main",

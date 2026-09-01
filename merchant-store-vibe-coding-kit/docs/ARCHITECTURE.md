@@ -1,9 +1,9 @@
-# Ping Business merchant-store architecture
+# PingBusiness merchant-store architecture
 
 ## Purpose
 
 Each merchant hosts an independently branded storefront and customer identity
-environment. Central Ping Business remains authoritative for merchant, store,
+environment. Central PingBusiness remains authoritative for merchant, store,
 product, inventory, order, and payment records.
 
 ## One-domain public surface
@@ -32,7 +32,7 @@ ESTORE_APP_PUBLIC_URL=/api
 ### `estore-app`
 
 The Flask service is the browser-facing API and security boundary. It manages
-customer identity through Keycloak, scopes all central Ping Business access with
+customer identity through Keycloak, scopes all central PingBusiness access with
 server-side merchant credentials, exposes approved catalogue/inventory/media,
 creates checkout intents, processes callbacks, and exposes customer-scoped
 orders/payments.

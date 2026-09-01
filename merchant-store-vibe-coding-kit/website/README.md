@@ -1,7 +1,7 @@
-# Static Ping Business store launcher
+# Static PingBusiness store launcher
 
 `pingbusiness-store-launcher.html` is a standalone, dependency-free prompt
-generator for the public Ping Business website.
+generator for the public PingBusiness website.
 
 It supports two merchant workflows:
 
@@ -20,6 +20,6 @@ selected hosting platform's protected secret system.
 The authoritative repository, branch, kit-root, and raw `AGENTS.md` URLs are
 fixed constants. Do not replace them with merchant-editable fields.
 
-To publish it, copy the file into the Ping Business public website and apply the
+To publish it, copy the file into the PingBusiness public website and apply the
 site's normal headers, analytics policy, CSP, and branding wrapper. Test prompt
 generation after any surrounding-site JavaScript or CSS is added.

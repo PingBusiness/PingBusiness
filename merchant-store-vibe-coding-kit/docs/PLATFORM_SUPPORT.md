@@ -24,7 +24,7 @@ https://<store-domain>/api/*  -> estore-app
 https://<store-domain>/auth/* -> Keycloak
 ```
 
-The merchant selects `staging` or `production`; the deployment generator derives the correct Ping Business `BIZ_APP_BASE_URL`:
+The merchant selects `staging` or `production`; the deployment generator derives the correct PingBusiness `BIZ_APP_BASE_URL`:
 
 ```text
 staging    -> https://biz-app.staging.pingbusiness.org

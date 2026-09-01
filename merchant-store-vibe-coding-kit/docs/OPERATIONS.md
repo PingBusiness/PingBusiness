@@ -9,7 +9,7 @@
 | Keycloak management | private `:9000/health/ready` and `/health/live` | `200` |
 | PostgreSQL | platform database health / `pg_isready` | ready |
 
-Because `estore-app` resolves merchant/store scope during startup, a running healthy process also indicates that initial Ping Business scope validation succeeded.
+Because `estore-app` resolves merchant/store scope during startup, a running healthy process also indicates that initial PingBusiness scope validation succeeded.
 
 ## Monitoring
 
@@ -17,7 +17,7 @@ Alert on:
 
 - service health failures and restart loops;
 - Keycloak/database connection failures;
-- repeated `401/403` from Ping Business scope calls;
+- repeated `401/403` from PingBusiness scope calls;
 - checkout callback/verification errors;
 - certificate expiry/renewal failure;
 - backup failure;
@@ -32,7 +32,7 @@ Use platform log collection with bounded retention. Redact secrets and tokens. S
 
 ### Merchant API key
 
-Coordinate rotation with Ping Business. Update the secret store, restart/redeploy `estore-app`, verify scope, then revoke the old key.
+Coordinate rotation with PingBusiness. Update the secret store, restart/redeploy `estore-app`, verify scope, then revoke the old key.
 
 ### ESTORE client secret
 

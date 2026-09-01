@@ -1,9 +1,9 @@
-# Ping Business merchant-store deployment agent instructions
+# PingBusiness merchant-store deployment agent instructions
 
 ## Canonical public source
 
 Clone `https://github.com/PingBusiness/PingBusiness` at branch `main`. The kit is not the repository root; it is located at `/merchant-store-vibe-coding-kit`. The browser-facing tree URL `https://github.com/PingBusiness/PingBusiness/tree/main/merchant-store-vibe-coding-kit` is for navigation and must not be used as a Git clone URL. Pin the exact commit deployed in the final report.
-You are deploying a Ping Business merchant store from this public vibe coding kit.
+You are deploying a PingBusiness merchant store from this public vibe coding kit.
 
 ## Mandatory constraints
 
@@ -11,7 +11,7 @@ You are deploying a Ping Business merchant store from this public vibe coding ki
 2. Deploy exactly one public hostname: `https://<store-domain>`.
 3. Route `/` to the merchant-store UI, `/api/*` to `estore-app`, and `/auth/*` to Keycloak.
 4. Keep PostgreSQL, Keycloak, realm bootstrap, `estore-app`, and merchant-store private. Only the edge service may be public.
-5. Ask the merchant to select only `staging` or `production`. Do not ask for a free-form Ping Business biz-app URL.
+5. Ask the merchant to select only `staging` or `production`. Do not ask for a free-form PingBusiness biz-app URL.
 6. Derive `BIZ_APP_BASE_URL` from the selected environment:
    - `staging`: `https://biz-app.staging.pingbusiness.org`
    - `production`: `https://biz-app.pingbusiness.org`
@@ -67,7 +67,7 @@ database password are written to `0600` files instead of into a chat transcript.
 Never report a step as completed without output you actually saw.
 
 `platform` and `pingbusinessEnvironment` are independent. `platform` selects where
-the stack runs; `pingbusinessEnvironment` selects which Ping Business backend it
+the stack runs; `pingbusinessEnvironment` selects which PingBusiness backend it
 talks to and is always `staging` or `production`. There is no third environment,
 and `localhost` is never an environment value — a local preview is
 `platform: "compose"` with `--local`, and it still uses the real staging or

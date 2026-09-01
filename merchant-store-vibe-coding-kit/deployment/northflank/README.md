@@ -1,6 +1,6 @@
 # Northflank deployment adapter
 
-`template.json` is a dynamic Northflank template for the complete Ping Business
+`template.json` is a dynamic Northflank template for the complete PingBusiness
 merchant-store stack. It uses one public hostname and exposes only the edge
 service:
 
@@ -68,7 +68,7 @@ Northflank clones `https://github.com/PingBusiness/PingBusiness` and receives `K
 
 ## Nontechnical merchant flow
 
-The merchant supplies the public kit URL, the three Ping Business credentials,
+The merchant supplies the public kit URL, the three PingBusiness credentials,
 one desired hostname, a region, and optionally a customized UI handoff. The
 authorized deployment agent should:
 

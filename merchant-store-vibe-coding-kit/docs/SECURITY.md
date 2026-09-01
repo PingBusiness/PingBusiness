@@ -2,7 +2,7 @@
 
 ## Secrets
 
-Server-only secrets include Ping Business merchant/store credentials, ESTORE
+Server-only secrets include PingBusiness merchant/store credentials, ESTORE
 client secret, Keycloak administrator password, PostgreSQL/SMTP credentials,
 and hosting/DNS tokens. Store them in encrypted platform controls, inject them
 only into required workloads, redact logs, and exclude them from Git, images,
@@ -11,7 +11,7 @@ build layers, browser assets, source maps, and public reports.
 ## Browser rules
 
 - Browser calls only same-origin `/api`.
-- It never creates Ping Business server headers or calls central `biz-app`.
+- It never creates PingBusiness server headers or calls central `biz-app`.
 - It never calls Keycloak administration, PostgreSQL, or PaymentAsia APIs directly.
 - Tokens are not logged or sent to analytics.
 - `postMessage` is a wake-up hint, never payment proof.
