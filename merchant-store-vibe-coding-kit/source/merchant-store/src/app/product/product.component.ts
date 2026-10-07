@@ -101,6 +101,15 @@ export class ProductComponent implements OnInit, OnDestroy {
     return isRecurringPlan(this.product);
   }
 
+  /** "Monthly subscription" / "Annual subscription" badge next to the price (Figma product details). */
+  subscriptionBadge(): string {
+    const frequency = String(this.product?.recurring_frequency || '').toUpperCase();
+    const intervals = Math.max(1, Math.trunc(Number(this.product?.recurring_intervals) || 1));
+    const names: Record<string, string> = { WEEKLY: 'Weekly', MONTHLY: 'Monthly', YEARLY: 'Annual' };
+    const base = names[frequency] ? `${names[frequency]} subscription` : 'Subscription';
+    return intervals > 1 ? `${base} (every ${intervals})` : base;
+  }
+
   planLabel(): string {
     return recurringPlanLabel(this.product);
   }

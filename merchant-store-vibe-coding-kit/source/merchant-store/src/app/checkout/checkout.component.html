@@ -1,73 +1,112 @@
-<section class="page-heading">
-  <div>
-    <p class="eyebrow">One-time purchase</p>
-    <h1>Secure payment</h1>
-    <p class="muted">Choose one of this merchant's available payment methods, then complete payment in a secure PaymentAsia window.</p>
-  </div>
-  <a routerLink="/cart" *ngIf="!completed">Back to cart</a>
-</section>
+<h1 class="cart-title">Your shopping cart</h1>
 
-<app-message type="error" [message]="error"></app-message>
-<app-message type="success" [message]="notice"></app-message>
+<app-status-banner *ngIf="completed && paymentSucceeded" type="success"
+  title="Payment successful"
+  message="Your order has been placed. Keep the references below for your records."></app-status-banner>
+<app-status-banner *ngIf="completed && !paymentSucceeded" type="error"
+  title="Payment not completed"
+  [message]="error"></app-status-banner>
 
-<div *ngIf="!checkoutStarted && summaryItems.length === 0" class="empty-state">
+<app-message *ngIf="!completed" type="error" [message]="error"></app-message>
+
+<div *ngIf="!checkoutStarted && !completed && summaryItems.length === 0" class="empty-state">
   Your cart is empty. <a routerLink="/catalog">Browse products</a>.
 </div>
 
-<section *ngIf="checkoutStarted || summaryItems.length > 0" class="checkout-grid">
-  <section class="card payment-card">
-    <div *ngIf="!checkoutStarted && !completed" class="payment-method-panel">
-      <h2>Choose payment method</h2>
-      <p *ngIf="networksLoading" class="muted">Loading available payment methods...</p>
-      <div *ngIf="!networksLoading && paymentNetworks.length > 0" class="payment-methods">
-        <label class="payment-method" *ngFor="let network of paymentNetworks" [class.selected]="selectedNetwork === network">
-          <input type="radio" name="paymentNetwork" [value]="network" [(ngModel)]="selectedNetwork">
-          <span>{{ paymentNetworkLabel(network) }}</span>
-        </label>
+<section *ngIf="checkoutStarted || completed || summaryItems.length > 0" class="cart-layout" [class.dimmed]="secureOverlayVisible()">
+  <div class="cart-lines">
+    <article class="cart-line" *ngFor="let item of summaryItems">
+      <a class="line-art" [routerLink]="['/product', item.product_id]" [attr.aria-label]="item.product.name || 'Product image'">
+        <img *ngIf="imageUrl(item); else checkoutItemInitial" [src]="imageUrl(item)" [alt]="item.product.name || 'Product image'">
+        <ng-template #checkoutItemInitial>
+          <span>{{ (item.product.name || '?').slice(0, 1) }}</span>
+        </ng-template>
+      </a>
+      <a class="line-name" [routerLink]="['/product', item.product_id]">{{ item.product.name }}</a>
+      <div class="line-type">One-time payment</div>
+      <!-- Same column as the cart's quantity stepper, read-only here so the
+           number is never clipped by the payment-type cell's ellipsis. -->
+      <div class="line-qty line-qty-static" aria-label="Quantity">Qty {{ item.quantity }}</div>
+      <div class="line-price">{{ lineTotal(item) }}</div>
+    </article>
+  </div>
+
+  <aside class="summary-card">
+    <h2>Order summary</h2>
+    <div class="summary-content">
+      <div class="summary-rows">
+        <div *ngIf="completed && orderId" class="summary-row">
+          <span class="sum-label">Order ID</span>
+          <strong>{{ orderId }}</strong>
+        </div>
+        <div *ngIf="checkoutReference" class="summary-row">
+          <span class="sum-label">Checkout ref.</span>
+          <strong class="mono">{{ checkoutReference }}</strong>
+        </div>
+        <div *ngIf="completed && paymentReference && paymentReference !== checkoutReference" class="summary-row">
+          <span class="sum-label">Payment ref.</span>
+          <strong class="mono">{{ paymentReference }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Items / Products</span>
+          <strong>{{ summaryItems.length }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Subtotal</span>
+          <strong>{{ subtotal() }}</strong>
+        </div>
       </div>
-      <button *ngIf="!networksLoading && paymentNetworks.length > 0" type="button" (click)="submit()" [disabled]="!selectedNetwork || loading">
-        Continue to secure payment
-      </button>
-    </div>
 
-    <h2 *ngIf="checkoutStarted || completed">Payment</h2>
-    <div *ngIf="loading" class="payment-loading">Preparing secure payment window...</div>
-
-    <div *ngIf="checkoutStarted && secureCheckoutReady && !completed" class="secure-window-panel">
-      <strong>Secure PaymentAsia window</strong>
-      <span *ngIf="secureWindowOpen()">The secure payment window is open. Complete payment there.</span>
-      <span *ngIf="!secureWindowOpen()">The secure payment window is not open. Open it to continue.</span>
-      <span *ngIf="checkoutReference">Checkout reference: <strong>{{ checkoutReference }}</strong></span>
-      <button type="button" class="secondary" (click)="reopenSecureWindow()">
-        {{ secureWindowOpen() ? 'Return to secure payment' : 'Open secure payment' }}
-      </button>
-    </div>
-
-    <div *ngIf="checkoutStarted && !loading && !secureCheckoutReady && !completed && summaryItems.length > 0" class="manual-start">
-      <p class="muted">Checkout did not start. Return to the payment-method choices and try again.</p>
-      <button type="button" (click)="checkoutStarted = false">Choose payment method</button>
-    </div>
-
-    <div *ngIf="completed" class="completion-actions">
-      <p *ngIf="orderId">Order ID: <strong>{{ orderId }}</strong></p>
-      <p *ngIf="paymentReference">Payment reference: <strong>{{ paymentReference }}</strong></p>
-      <a class="button-link" routerLink="/orders">View orders</a>
-      <a class="button-link secondary" routerLink="/catalog">Continue shopping</a>
-    </div>
-  </section>
-
-  <aside class="card checkout-summary">
-    <h2>Cart items</h2>
-    <div class="checkout-line" *ngFor="let item of summaryItems">
-      <div>
-        <span>{{ item.quantity }} x {{ item.product.name }}</span>
-        <small class="item-type">One-time</small>
+      <!-- Not started yet: choose (or confirm the preselected) method and launch. -->
+      <div *ngIf="!checkoutStarted && !completed" class="summary-cta">
+        <app-payment-methods
+          title="Select payment method"
+          description="Choose one of this merchant's available payment methods, then complete payment in a secure payment window."
+          [networks]="paymentNetworks"
+          [loading]="networksLoading"
+          [selected]="selectedNetwork"
+          (selectedChange)="selectNetwork($event)"></app-payment-methods>
+        <button type="button" class="checkout-btn" (click)="submit()"
+          [disabled]="loading || networksLoading || !selectedNetwork || summaryItems.length === 0">
+          Continue to secure payment
+        </button>
+        <a class="summary-link" routerLink="/cart">Back to cart</a>
       </div>
-      <strong>{{ lineTotal(item) }}</strong>
-    </div>
-    <div class="checkout-total grand-total">
-      <span>Total</span>
-      <strong>{{ subtotal() }}</strong>
+
+      <!-- Launching / in the secure window. -->
+      <div *ngIf="checkoutStarted && !completed" class="summary-cta">
+        <app-payment-methods title="Payment method" [networks]="lockedNetworks()" [selectable]="false"></app-payment-methods>
+        <p *ngIf="loading" class="summary-note">Preparing secure payment window...</p>
+        <ng-container *ngIf="!loading && secureCheckoutReady">
+          <button type="button" class="checkout-btn" (click)="reopenSecureWindow()">
+            {{ secureWindowOpen() ? 'Return to secure payment' : 'Open secure payment' }}
+          </button>
+          <p class="summary-note">
+            {{ secureWindowOpen() ? (notice || 'Complete payment in the secure payment window.') : 'The secure payment window was closed. Open it again to finish paying, or cancel.' }}
+          </p>
+          <button type="button" class="link-btn" (click)="cancelSecureCheckout()">Cancel and go back</button>
+        </ng-container>
+        <ng-container *ngIf="!loading && !secureCheckoutReady">
+          <p class="summary-note">Checkout did not start. Choose a payment method and try again.</p>
+          <button type="button" class="checkout-btn secondary" (click)="cancelSecureCheckout()">Choose payment method</button>
+        </ng-container>
+      </div>
+
+      <!-- Finished (success or failure). -->
+      <div *ngIf="completed" class="summary-cta">
+        <app-payment-methods title="Payment method" [networks]="lockedNetworks()" [selectable]="false"></app-payment-methods>
+        <p *ngIf="paymentSucceeded" class="summary-note left">A copy of these references is also in your order history.</p>
+        <a *ngIf="paymentSucceeded" class="summary-link" routerLink="/orders">View All Orders</a>
+        <ng-container *ngIf="!paymentSucceeded">
+          <button type="button" class="checkout-btn" (click)="cancelSecureCheckout()">Try again</button>
+          <a class="summary-link" routerLink="/cart">Back to cart</a>
+        </ng-container>
+      </div>
     </div>
   </aside>
 </section>
+
+<!-- Figma "Checkout" frame: the page stays underneath, dimmed, while the hosted window is open.
+     Clicking the dim area brings the secure window back; the Order summary keeps the controls. -->
+<div *ngIf="secureOverlayVisible()" class="secure-overlay" (click)="focusSecureWindow()"
+  role="button" tabindex="0" aria-label="Return to secure payment" (keydown.enter)="focusSecureWindow()"></div>

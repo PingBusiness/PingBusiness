@@ -1,0 +1,105 @@
+/* Figma: white box, p16, r8, inside the Order summary card. */
+.pm-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.pm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pm-title {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--color-status-waiting);
+}
+
+.pm-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-fg-subtle);
+}
+
+/* Two cards per row (design shows two side by side); wraps for more networks. */
+.pm-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.pm-card {
+  flex: 1 1 calc(50% - 8px);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pm-card:hover:not(:disabled):not(.static) {
+  border-color: var(--color-brand-200);
+  background: var(--color-surface);
+  color: var(--color-fg);
+}
+
+.pm-card.selected {
+  border-color: transparent;
+  background: var(--color-brand-50);
+}
+
+.pm-card.static {
+  cursor: default;
+}
+
+.pm-card.disabled,
+.pm-card:disabled {
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-fg-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.pm-radio {
+  flex-shrink: 0;
+  color: var(--color-brand-soft);
+}
+
+.pm-card.selected .pm-radio {
+  color: var(--color-brand);
+}
+
+.pm-card.disabled .pm-radio,
+.pm-card:disabled .pm-radio {
+  color: var(--color-border-strong);
+}
+
+.pm-label {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

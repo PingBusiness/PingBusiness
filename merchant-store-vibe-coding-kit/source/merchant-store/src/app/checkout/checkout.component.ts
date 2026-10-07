@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
@@ -7,12 +7,14 @@ import { CartLine, CheckoutLaunch, CheckoutPayload, CheckoutStatus, Inventory, P
 import { CartService } from '../services/cart.service';
 import { EstoreApiService } from '../services/estore-api.service';
 import { KeycloakService } from '../services/keycloak.service';
-import { apiErrorMessage, asArray, formatMoney, isRecurringPlan, toNumber } from '../utils';
+import { ProductThumbService } from '../services/product-thumb.service';
+import { SecurePopupService } from '../services/secure-popup.service';
+import { apiErrorMessage, asArray, centreSecurePopup, formatMoney, isRecurringPlan, paymentNetworkLabel, securePopupFeatures, toNumber } from '../utils';
 
 @Component({
   selector: 'app-checkout',
   templateUrl: './checkout.component.html',
-  styleUrls: ['./checkout.component.css']
+  styleUrls: ['../cart/cart.component.css', './checkout.component.css']
 })
 export class CheckoutComponent implements OnInit, OnDestroy {
   items: CartLine[] = [];
@@ -29,6 +31,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   networksLoading = true;
   error = '';
   notice = '';
+  /** Payment succeeded (set in finishCheckout); drives the green banner. */
+  paymentSucceeded = false;
+  /** Network preselected on the cart page, carried over as ?network=. */
+  private requestedNetwork = '';
+  /** Set by the cart when it already opened the secure window on the Proceed click. */
+  private autoLaunch = false;
 
   private cartSub?: Subscription;
   private checkoutPopup: Window | null = null;
@@ -43,17 +51,33 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     private cart: CartService,
     private api: EstoreApiService,
     private keycloak: KeycloakService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute,
+    private thumbs: ProductThumbService,
+    private securePopup: SecurePopupService
   ) {}
 
   ngOnInit(): void {
     window.addEventListener('message', this.messageHandler);
+    this.requestedNetwork = String(this.route.snapshot.queryParamMap.get('network') || '');
+    this.autoLaunch = this.route.snapshot.queryParamMap.get('launch') === '1';
+    if (this.autoLaunch) {
+      // `launch=1` is a one-shot hand-off from the cart click. Drop it from the
+      // address bar immediately so a reload (or Back) after "Cancel and go back"
+      // does not start a fresh checkout and bring the Order summary modal back.
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { network: this.requestedNetwork || null },
+        replaceUrl: true
+      });
+    }
     this.loadPaymentNetworks();
     this.cartSub = this.cart.items$.subscribe(items => {
       this.items = items;
       if (!this.checkoutStarted && !this.completed) {
         this.summaryItems = [...items];
       }
+      items.forEach(item => this.thumbs.load(item.product));
     });
   }
 
@@ -78,7 +102,49 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   paymentNetworkLabel(network: string): string {
-    return ({ Wechat: 'WeChat Pay', CreditCard: 'Credit Card', Fps: 'FPS' } as Record<string, string>)[network] || network;
+    return paymentNetworkLabel(network);
+  }
+
+  selectNetwork(network: string): void {
+    if (!this.checkoutStarted && !this.completed) {
+      this.selectedNetwork = network;
+    }
+  }
+
+  selectedNetworkLabel(): string {
+    return paymentNetworkLabel(this.selectedNetwork);
+  }
+
+  /** The chosen method as a one-entry list for the static (locked) card. */
+  lockedNetworks(): string[] {
+    return this.selectedNetwork ? [this.selectedNetwork] : [];
+  }
+
+  /** Dim-area click: bring the window back only if it is still open. */
+  focusSecureWindow(): void {
+    if (this.secureWindowOpen()) {
+      this.reopenSecureWindow();
+    }
+  }
+
+  cancelSecureCheckout(): void {
+    if (this.completed) { return; }
+    this.stopStatusPolling();
+    this.closeCheckoutPopup();
+    this.clearSecureCheckout();
+    this.checkoutStarted = false;
+    this.loading = false;
+    this.notice = '';
+    this.error = '';
+  }
+
+  imageUrl(item: CartLine): string {
+    return this.thumbs.url(item.product_id);
+  }
+
+  /** Dim the cart and show the overlay card while the hosted payment window is active. */
+  secureOverlayVisible(): boolean {
+    return this.checkoutStarted && this.secureCheckoutReady && !this.completed && !this.loading;
   }
 
   secureWindowOpen(): boolean {
@@ -87,8 +153,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   reopenSecureWindow(): void {
     if (this.checkoutPopup && !this.checkoutPopup.closed) {
+      centreSecurePopup(this.checkoutPopup);
       try { this.checkoutPopup.focus(); } catch (_) {}
-      this.notice = 'The secure PaymentAsia window is open.';
+      this.notice = 'The secure payment window is open.';
       return;
     }
     if (!this.checkoutLaunch) {
@@ -97,16 +164,17 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     const popup = window.open(
       '',
       'pingbizCartCheckout',
-      'width=760,height=760,resizable=yes,scrollbars=yes'
+      securePopupFeatures()
     );
     if (!popup) {
       this.error = 'Your browser blocked the secure payment window. Allow pop-ups for this site, then try again.';
       return;
     }
     this.checkoutPopup = popup;
+    centreSecurePopup(popup);
     this.error = '';
     if (this.submitLaunchToPopup(this.checkoutLaunch)) {
-      this.notice = 'Complete payment in the secure PaymentAsia window.';
+      this.notice = 'Complete payment in the secure payment window.';
     }
   }
 
@@ -177,7 +245,15 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       next: response => {
         this.networksLoading = false;
         this.paymentNetworks = Array.isArray(response?.payment_networks) ? response.payment_networks : [];
-        this.selectedNetwork = this.paymentNetworks.length === 1 ? this.paymentNetworks[0] : '';
+        this.selectedNetwork = this.paymentNetworks.includes(this.requestedNetwork)
+          ? this.requestedNetwork
+          : this.paymentNetworks.length === 1 ? this.paymentNetworks[0] : '';
+        if (this.autoLaunch && this.selectedNetwork && this.summaryItems.length > 0) {
+          this.autoLaunch = false;
+          this.submit();
+        } else {
+          this.securePopup.close('pingbizCartCheckout');
+        }
         if (this.paymentNetworks.length === 0) {
           this.error = 'No payment methods are currently available for this merchant.';
         }
@@ -198,7 +274,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           this.loading = false;
           this.checkoutStarted = false;
           this.closeEmptyPopup();
-          this.router.navigate(['/signin'], { queryParams: { returnUrl: '/checkout' } });
+          this.router.navigate(['/signin'], { queryParams: { returnUrl: this.selectedNetwork ? `/checkout?network=${encodeURIComponent(this.selectedNetwork)}` : '/checkout' } });
           return;
         }
         this.api.checkout(this.payload(checkoutItems)).subscribe({
@@ -220,7 +296,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
             const launched = this.submitLaunchToPopup(launch);
             this.notice = launched
-              ? 'Complete payment in the secure PaymentAsia window.'
+              ? 'Complete payment in the secure payment window.'
               : 'Your browser blocked the secure payment window. Use Open secure payment to continue.';
 
             this.startStatusPolling();
@@ -306,15 +382,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   private preparePopup(): void {
     this.closeCheckoutPopup();
+    // Prefer the window the cart already opened inside the user's click.
+    this.checkoutPopup = this.securePopup.take('pingbizCartCheckout');
+    if (this.checkoutPopup) {
+      return;
+    }
     this.checkoutPopup = window.open(
       '',
       'pingbizCartCheckout',
-      'width=760,height=760,resizable=yes,scrollbars=yes'
+      securePopupFeatures()
     );
     if (!this.checkoutPopup) {
       this.notice = 'Your browser blocked the secure payment window. A manual Open secure payment button will be available.';
       return;
     }
+    centreSecurePopup(this.checkoutPopup);
     this.writePreparingPage(this.checkoutPopup);
   }
 
@@ -359,7 +441,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
       const doc = popup.document;
       doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Opening secure payment</title></head><body><main style="font-family:system-ui;padding:2rem"><h1>Opening secure payment...</h1><p>You are being transferred to PaymentAsia.</p></main></body></html>');
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Opening secure payment</title></head><body><main style="font-family:system-ui;padding:2rem"><h1>Opening secure payment...</h1><p>You are being transferred to the secure payment page.</p></main></body></html>');
       doc.close();
 
       const form = doc.createElement('form');
@@ -378,7 +460,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       form.submit();
       return true;
     } catch (err) {
-      console.error('Could not open secure PaymentAsia checkout', err);
+      console.error('Could not open secure checkout window', err);
       this.error = 'The secure payment window could not be opened. Please try again.';
       this.closeCheckoutPopup();
       return false;
@@ -481,9 +563,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.completed = true;
     this.orderId = Number(data.orderId || data.order_id) || undefined;
     this.paymentReference = data.paymentReference || data.payment_reference || this.paymentReference || this.checkoutReference;
+    this.paymentSucceeded = success;
     if (success) {
       this.error = '';
-      this.notice = 'Payment completed successfully.';
+      this.notice = '';
       this.cart.clear();
     } else {
       this.notice = '';

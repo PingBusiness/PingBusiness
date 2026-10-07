@@ -6,7 +6,7 @@ import { ORDER_STATUS_LABELS } from '../app.constants';
 import { Order, OrderItem, Payment, Product, ProductFile } from '../app.types';
 import { EstoreApiService } from '../services/estore-api.service';
 import { ToastService } from '../services/toast.service';
-import { apiErrorMessage, asArray, formatMoney, isRecurringPlan, recurringPlanLabel, toCents } from '../utils';
+import { paymentNetworkLabel, apiErrorMessage, asArray, formatMoney, isRecurringPlan, recurringPlanLabel, toCents } from '../utils';
 
 const MAIN_TITLE_IMAGE_DESCRIPTION = '__PINGBIZ_MAIN_TITLE_IMAGE__';
 
@@ -194,19 +194,17 @@ export class OrdersComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * The card network for an order — biz-app has no per-order method column.
+   * The payment network for an order — biz-app has no per-order method column.
    *
    * One-time orders: it comes from a payment's `details` JSON (`payment_network`).
    * Prefers a SUCCESS record; falls back to any payment carrying a network.
    *
-   * Subscriptions: there is no per-order gateway record (the charges live in the
-   * recurring table, which the storefront API does not expose), so they always
-   * bill on CreditCard via PaymentAsia recurring — mirror the merchant portal.
+   * Recurring subscriptions: the charges live in the recurring table, which the
+   * storefront API does not expose, so when no payment row carries a network the
+   * method falls back to CreditCard (the only network that can bill per period).
+   * Prepaid subscriptions and one-time orders always have a payment row.
    */
   paymentMethod(order: Order): string {
-    if (this.orderKind(order) === 'subscription') {
-      return 'CreditCard';
-    }
     const parse = (payment: Payment): Record<string, any> | null => {
       if (!payment.details) {
         return null;
@@ -224,7 +222,11 @@ export class OrdersComponent implements OnInit, OnDestroy {
       .filter((details): details is Record<string, any> => !!details && !!details['payment_network']);
     const success = parsed.find(details =>
       String(details['paymentasia_status_normalized'] || '').toUpperCase() === 'SUCCESS');
-    return String((success || parsed[0])?.['payment_network'] || '—');
+    const network = (success || parsed[0])?.['payment_network'];
+    if (network) {
+      return paymentNetworkLabel(String(network));
+    }
+    return this.orderKind(order) === 'subscription' ? paymentNetworkLabel('CreditCard') : '—';
   }
 
   statusLabel(status?: string): string {

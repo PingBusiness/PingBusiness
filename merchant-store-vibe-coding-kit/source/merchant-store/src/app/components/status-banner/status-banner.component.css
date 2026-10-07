@@ -1,0 +1,40 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-status-success);
+  color: #fff;
+}
+
+.banner.error {
+  background: var(--color-error);
+}
+
+.banner-icon {
+  flex-shrink: 0;
+}
+
+.banner-copy {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.banner-title,
+.banner-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.banner-title {
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}

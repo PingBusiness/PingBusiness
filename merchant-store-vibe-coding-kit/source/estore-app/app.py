@@ -95,6 +95,7 @@ PAYMENT_ASIA_NETWORKS = (
     "PayMe",
 )
 PAYMENT_ASIA_NETWORK_SET = set(PAYMENT_ASIA_NETWORKS)
+CHECKOUT_NETWORK_SET = PAYMENT_ASIA_NETWORK_SET | {"Crypto"}
 HONG_KONG_TZ = ZoneInfo("Asia/Hong_Kong")
 
 if not ESTORE_CLIENT_SECRET:
@@ -195,7 +196,7 @@ def parse_payment_networks(value: Any) -> List[str]:
     if any(not part.strip() for part in raw_parts):
         raise ValueError("Merchant payment_networks contains an empty entry")
     networks = [part.strip() for part in raw_parts]
-    invalid = [network for network in networks if network not in PAYMENT_ASIA_NETWORK_SET]
+    invalid = [network for network in networks if network not in CHECKOUT_NETWORK_SET]
     if invalid:
         raise ValueError("Merchant payment_networks contains unsupported values: " + ", ".join(invalid))
     if len(set(networks)) != len(networks):
@@ -880,13 +881,11 @@ def build_checkout(cart: List[Dict[str, int]]) -> Tuple[str, Decimal, List[Dict[
 
 
 def build_subscription(product_id: int, quantity: int) -> Tuple[str, Decimal, Dict[str, Any]]:
-    """Build exactly one recurring product line for Subscribe Now."""
+    """Build exactly one subscription product line for Subscribe Now."""
     currency, line_item = build_checkout_line(
         {"product_id": product_id, "quantity": quantity},
         require_recurring=True,
     )
-    if currency != "HKD":
-        raise ValueError("PaymentAsia recurring payments support HKD only")
     return currency, line_item["amount"], line_item
 
 
@@ -1055,7 +1054,7 @@ RECURRING_REDIRECT_TEMPLATE = """<!doctype html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Opening secure card verification...</title>
+    <title>Opening secure subscription checkout...</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; line-height: 1.45; }
       .card { max-width: 760px; border: 1px solid #ddd; border-radius: 12px; padding: 1.25rem; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
@@ -1065,8 +1064,8 @@ RECURRING_REDIRECT_TEMPLATE = """<!doctype html>
   </head>
   <body data-checkout-id="{{ checkout_id|e }}">
     <div class="card">
-      <h1>Opening secure card verification</h1>
-      <p class="muted">You are being redirected to PaymentAsia to verify the card used for this subscription.</p>
+      <h1>Opening secure subscription checkout</h1>
+      <p class="muted">You are being redirected to choose and complete the available subscription payment method.</p>
       <a href="{{ redirect_link|e }}">Continue</a>
     </div>
     <script>
@@ -1094,6 +1093,9 @@ CHECKOUT_RETURN_TEMPLATE = """<!doctype html>
       .muted { color: #64748b; }
       .detail { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #e5e7eb; }
       .detail:last-of-type { border-bottom: 0; }
+      .detail > span { flex: none; }
+      /* Long unbroken values (e.g. crypto:<chain>:<tx hash>) wrap inside the card instead of overflowing it. */
+      .detail > strong { min-width: 0; text-align: right; overflow-wrap: anywhere; }
       button { border: 0; border-radius: .65rem; background: #f59e0b; color: #111827; font-weight: 800; padding: .75rem 1rem; font-size: 1rem; cursor: pointer; margin-top: 1rem; }
       button:hover { background: #d97706; }
     </style>
@@ -2064,7 +2066,7 @@ def checkout():
 @app.route("/subscribe", methods=["POST"])
 @customer_required
 def subscribe():
-    """Start tokenization for exactly one subscription product and quantity."""
+    """Start hosted checkout for exactly one subscription product and quantity."""
     customer, err = require_current_customer()
     if err:
         return err
@@ -2083,12 +2085,6 @@ def subscribe():
     except ValueError as exc:
         return error(str(exc), 400)
 
-    payment_configuration, configuration_error = get_configured_payment_networks()
-    if configuration_error:
-        return configuration_error
-    if "CreditCard" not in payment_configuration["payment_networks"]:
-        return error("CreditCard payment network is not enabled for this merchant", 403)
-
     merchant_reference = str(uuid.uuid4())
     product = line_item.get("product") if isinstance(line_item.get("product"), dict) else {}
     subject = data.get("subject") or f"Subscription {product.get('name') or merchant_reference}"
@@ -2098,7 +2094,6 @@ def subscribe():
         "merchant_reference": merchant_reference,
         "subscription": subscription,
         "line_items": [checkout_snapshot_line(line_item)],
-        "payment_network": "CreditCard",
         "subject": subject,
         "checkout_kind": "subscription",
     }
@@ -2125,6 +2120,7 @@ def subscribe():
         "notify_url": f"{base}/recurring/tokenization/notify/{intent_identifier}",
         "payment_notify_url": f"{base}/recurring/payment/notify",
         "subject": subject,
+        "subscription_payment_version": 2,
     }
     if data.get("token_valid_date") not in (None, ""):
         recurring_body["token_valid_date"] = data.get("token_valid_date")
@@ -2133,7 +2129,7 @@ def subscribe():
     if recurring_status >= 400:
         return proxy_response(recurring_payload, recurring_status)
     if not isinstance(recurring_payload, dict) or recurring_payload.get("accepted") is not True:
-        return error("PaymentAsia tokenization request was not accepted", 502)
+        return error("Subscription checkout request was not accepted", 502)
     try:
         redirect_link = extract_recurring_redirect_link(recurring_payload)
     except ValueError as exc:

@@ -171,7 +171,7 @@ export class SubscriptionsComponent implements OnInit {
 
   /**
    * Stop the subscription's recurring payments. The call includes a synchronous
-   * hop to PaymentAsia, so the button shows a spinner. Only a 2xx means it was
+   * hop to the payment provider, so the button shows a spinner. Only a 2xx means it was
    * stopped; on any error the subscription is unchanged (still active) and the
    * customer can retry.
    */

@@ -1,79 +1,134 @@
-<section class="page-heading">
-  <div>
-    <p class="eyebrow">Subscribe Now</p>
-    <h1>Subscription checkout</h1>
-    <p class="muted">This checkout contains one subscription product. It bypasses the shopping cart.</p>
-  </div>
-  <a *ngIf="product && !completed" [routerLink]="['/product', product.id]">Back to product</a>
-</section>
+<h1 class="cart-title">Subscription Checkout</h1>
 
-<app-message type="error" [message]="error"></app-message>
-<app-message type="success" [message]="notice"></app-message>
+<app-status-banner *ngIf="completed && subscriptionSucceeded" type="success"
+  title="Subscription created successfully"
+  [message]="billedPerPeriod()
+    ? 'The first scheduled payment is on the next Hong Kong calendar day.'
+    : 'Your subscription is paid in full. No further charges are scheduled.'"></app-status-banner>
+<app-status-banner *ngIf="completed && !subscriptionSucceeded" type="error"
+  title="Subscription not completed"
+  [message]="error"></app-status-banner>
 
-<div *ngIf="loadingProduct" class="loading-card">Loading subscription...</div>
+<app-message *ngIf="!completed" type="error" [message]="error"></app-message>
 
-<section *ngIf="!loadingProduct && product" class="subscription-grid">
-  <section class="card checkout-card">
-    <div *ngIf="!checkoutStarted && !completed" class="start-panel">
-      <h2>Confirm subscription</h2>
-      <div class="card-method-note">
-        <strong>Credit Card verification</strong>
-        <span>Click "Verify Card Details" to subscribe. The first payment will be scheduled on {{ firstChargeDate() }}.</span>
+<div *ngIf="loadingProduct" class="empty-state">Loading subscription...</div>
+
+<section *ngIf="!loadingProduct && product" class="cart-layout" [class.dimmed]="secureOverlayVisible()">
+  <div class="cart-lines">
+    <article class="cart-line">
+      <a class="line-art" [routerLink]="['/product', product.id]" [attr.aria-label]="product.name || 'Product image'">
+        <img *ngIf="imageUrl(); else subItemInitial" [src]="imageUrl()" [alt]="product.name || 'Product image'">
+        <ng-template #subItemInitial>
+          <span>{{ (product.name || '?').slice(0, 1) }}</span>
+        </ng-template>
+      </a>
+      <a class="line-name" [routerLink]="['/product', product.id]">{{ product.name }}</a>
+
+      <div *ngIf="!checkoutStarted && !completed" class="line-qty" role="group" aria-label="Quantity">
+        <button type="button" class="qty-btn" (click)="quantity = quantity > 1 ? quantity - 1 : 1" [disabled]="quantity <= 1" aria-label="Decrease quantity">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+        </button>
+        <input type="number" class="qty-value" min="1" step="1" [attr.max]="available || null" [(ngModel)]="quantity" aria-label="Quantity">
+        <button type="button" class="qty-btn" (click)="quantity = quantity + 1" [disabled]="available > 0 && quantity >= available" aria-label="Increase quantity">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        </button>
       </div>
-      <label class="quantity-field">
-        Quantity
-        <input type="number" min="1" [attr.max]="available || null" [(ngModel)]="quantity">
-      </label>
-      <p *ngIf="quantityExceedsStock()" class="error-text">The requested quantity is unavailable.</p>
-      <button type="button" (click)="startSubscription()" [disabled]="starting || quantityExceedsStock() || available <= 0">
-        {{ starting ? 'Starting secure verification...' : 'Verify Card Details' }}
-      </button>
+
+      <div *ngIf="checkoutStarted || completed" class="line-qty line-qty-static" aria-label="Quantity">Qty {{ quantity }}</div>
+
+      <div class="line-type">{{ lineTypeLabel() }}</div>
+      <div class="line-price">{{ lineAmount() }}</div>
+
+      <span *ngIf="quantityExceedsStock()" class="line-error" role="alert">The requested quantity is unavailable.</span>
+      <span *ngIf="!quantityExceedsStock() && available > 0 && available <= 5" class="line-stock">{{ available }} in stock</span>
+    </article>
+  </div>
+
+  <aside class="summary-card">
+    <h2>Order summary</h2>
+    <div class="summary-content">
+      <div class="summary-rows">
+        <div *ngIf="completed && orderId" class="summary-row">
+          <span class="sum-label">Order ID</span>
+          <strong>{{ orderId }}</strong>
+        </div>
+        <div *ngIf="completed && paymentReference" class="summary-row">
+          <span class="sum-label">Checkout ref.</span>
+          <strong class="mono">{{ paymentReference }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Schedule</span>
+          <strong>{{ scheduleLabel() }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Amount per payment</span>
+          <strong>{{ amountPerPayment() }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">First payment schedule</span>
+          <strong>{{ firstChargeDate() }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Full commitment ({{ executions() }} payments)</span>
+          <strong>{{ plannedCommitment() }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Subtotal</span>
+          <strong>{{ billedPerPeriod() || !completed ? amountPerPayment() : plannedCommitment() }}</strong>
+        </div>
+      </div>
+
+      <!-- Not started: show the merchant's methods (read-only) and launch. -->
+      <div *ngIf="!checkoutStarted && !completed" class="summary-cta">
+        <button type="button" class="checkout-btn" (click)="startSubscription()"
+          [disabled]="starting || quantityExceedsStock() || available <= 0">
+          {{ starting ? 'Starting secure verification...' : 'Proceed to Checkout' }}
+        </button>
+        <p class="summary-note">You will be asked to sign in, then choose your payment method on the secure page.</p>
+      </div>
+
+      <!-- Launching / in the secure window. -->
+      <div *ngIf="checkoutStarted && !completed" class="summary-cta">
+        <p *ngIf="starting" class="summary-note">Preparing secure payment verification...</p>
+        <ng-container *ngIf="!starting && externalCheckoutUrl">
+          <button type="button" class="checkout-btn" (click)="reopenSecureWindow()">
+            {{ secureWindowOpen() ? 'Return to secure payment' : 'Open secure payment' }}
+          </button>
+        </ng-container>
+        <p *ngIf="!starting" class="summary-note">
+          {{ secureWindowOpen() ? recurringStatusLabel() : 'The secure window was closed. Open it again to finish, or cancel.' }}
+        </p>
+        <button *ngIf="!starting" type="button" class="link-btn" (click)="cancelSecureCheckout()">Cancel and go back</button>
+      </div>
+
+      <!-- Finished. -->
+      <div *ngIf="completed" class="summary-cta">
+        <p class="summary-note left">
+          {{ billedPerPeriod()
+            ? 'A successful checkout creates one order with one recurring order item and one billing schedule.'
+            : 'A successful checkout creates one order, paid in full for the whole subscription term.' }}
+        </p>
+        <a *ngIf="subscriptionSucceeded" class="summary-link" routerLink="/subscriptions">View All Subscriptions</a>
+        <ng-container *ngIf="!subscriptionSucceeded">
+          <button type="button" class="checkout-btn" (click)="cancelSecureCheckout(); completed = false">Try again</button>
+          <a class="summary-link" [routerLink]="['/product', product.id]">Back to product</a>
+        </ng-container>
+      </div>
     </div>
-
-    <div *ngIf="checkoutStarted && !completed" class="checkout-progress">
-      <h2>Subscription progress</h2>
-      <ol>
-        <li [class.active]="currentStageIndex() === 1" [class.done]="currentStageIndex() > 1">Verify card</li>
-        <li [class.active]="currentStageIndex() === 2" [class.done]="currentStageIndex() > 2">Create schedule</li>
-        <li [class.active]="currentStageIndex() === 3">Complete</li>
-      </ol>
-      <p class="progress-status">{{ recurringStatusLabel() }}</p>
-    </div>
-
-    <div *ngIf="starting" class="payment-loading">Preparing secure card verification...</div>
-
-    <div *ngIf="checkoutStarted && externalCheckoutUrl && !completed" class="secure-window-panel">
-      <strong>Secure PaymentAsia window</strong>
-      <span *ngIf="secureWindowOpen()">The secure window is open. Complete card verification there.</span>
-      <span *ngIf="!secureWindowOpen()">The secure window is not open. Reopen it to continue.</span>
-      <button type="button" class="secondary" (click)="reopenSecureWindow()">Open secure verification</button>
-    </div>
-
-    <iframe
-      #checkoutFrame
-      *ngIf="checkoutFrameUrl"
-      class="payment-frame"
-      [src]="checkoutFrameUrl"
-      title="Secure subscription card verification"
-      sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation">
-    </iframe>
-
-    <div *ngIf="completed" class="completion-actions">
-      <p *ngIf="orderId">Order ID: <strong>{{ orderId }}</strong></p>
-      <p *ngIf="paymentReference">Subscription checkout reference: <strong>{{ paymentReference }}</strong></p>
-      <a class="button-link" routerLink="/subscriptions">View subscriptions</a>
-      <a class="button-link secondary" routerLink="/catalog">Continue shopping</a>
-    </div>
-  </section>
-
-  <aside class="card subscription-summary">
-    <p class="eyebrow">Single-product subscription</p>
-    <h2>{{ product.name }}</h2>
-    <div class="summary-row"><span>Quantity</span><strong>{{ quantity }}</strong></div>
-    <div class="summary-row"><span>Schedule</span><strong>{{ planLabel() }}</strong></div>
-    <div class="summary-row"><span>Amount per payment</span><strong>{{ amountPerPayment() }}</strong></div>
-    <div class="summary-row"><span>First scheduled payment</span><strong>{{ firstChargeDate() }}</strong></div>
-    <div class="summary-row total"><span>Planned commitment</span><strong>{{ plannedCommitment() }}</strong></div>
-    <p class="muted small-text">A successful checkout creates one order with exactly one recurring order item and one PaymentAsia schedule.</p>
   </aside>
 </section>
+
+<!-- Inline fallback when the browser blocks the popup: the hosted page renders here instead. -->
+<iframe
+  #checkoutFrame
+  *ngIf="checkoutFrameUrl"
+  class="payment-frame"
+  [src]="checkoutFrameUrl"
+  title="Secure subscription payment"
+  sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation">
+</iframe>
+
+<!-- Figma "Checkout" frame: the page stays underneath, dimmed, while the hosted window is open.
+     Clicking the dim area brings the secure window back; the Order summary keeps the controls. -->
+<div *ngIf="secureOverlayVisible() && !checkoutFrameUrl" class="secure-overlay" (click)="focusSecureWindow()"
+  role="button" tabindex="0" aria-label="Return to secure payment" (keydown.enter)="focusSecureWindow()"></div>

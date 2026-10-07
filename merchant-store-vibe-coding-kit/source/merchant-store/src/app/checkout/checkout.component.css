@@ -1,123 +1,101 @@
-.checkout-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 2rem;
-  align-items: start;
+/*
+ * Checkout = the Figma cart layout (shared via cart.component.css in styleUrls)
+ * plus the "Checkout" frame's dimmed overlay while the hosted payment window
+ * is open, and the success / failure states.
+ */
+.cart-layout.dimmed .cart-lines {
+  pointer-events: none;
 }
 
-.payment-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
+/* While the hosted window is open the Order summary sits in the middle of the
+   viewport, above the dim layer, so its controls stay reachable. */
+.cart-layout.dimmed .summary-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 41;
+  width: min(390px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .25);
 }
 
-.payment-method-panel { display: grid; gap: 1rem; }
-.payment-method-panel h2 { margin: 0; font-size: 1.2rem; }
-
-.payment-methods {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: .75rem;
+/* Checkout lines are read-only: the quantity shows as text inside the same
+   pill footprint as the cart's stepper so cart and checkout line up. */
+.line-qty-static {
+  justify-content: center;
+  height: 32px;
+  min-width: 108px; /* same footprint as the − [n] + stepper (32 + 44 + 32) */
+  padding: 0 16px;
+  color: var(--color-fg);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.payment-method {
-  display: flex;
+/* Design truncates long references with an ellipsis. */
+.summary-row .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-link {
+  display: inline-flex;
   align-items: center;
-  gap: .65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: .9rem;
-  cursor: pointer;
+  gap: 8px;
+  align-self: flex-start;
+  color: var(--color-brand);
+  font-size: 16px;
+  line-height: 24px;
+  text-decoration: none;
+}
+
+.summary-link:hover {
+  text-decoration: underline;
+}
+
+.summary-note.left {
+  text-align: left;
+}
+
+.checkout-btn.secondary {
   background: var(--color-surface);
-  font-weight: 500;
+  color: var(--color-fg);
+  border: 1px solid var(--color-border-strong);
 }
 
-.payment-method.selected {
-  border-color: var(--color-fg);
-  box-shadow: 0 0 0 1px var(--color-fg);
-}
-
-.payment-method input { margin: 0; width: auto; accent-color: var(--color-brand); }
-
-.payment-method-panel > button { justify-self: start; }
-
-.payment-loading,
-.manual-start {
-  border: 1px dashed var(--color-border-strong);
-  background: var(--color-surface-muted);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
-  text-align: center;
-  color: var(--color-fg-subtle);
-}
-
-.secure-window-panel {
-  display: grid;
-  gap: .4rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
-  color: var(--color-fg-subtle);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-}
-
-.secure-window-panel strong { color: var(--color-fg); }
-.secure-window-panel button { justify-self: start; margin-top: .25rem; }
-
-.completion-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .75rem;
-  margin-top: 1rem;
-}
-
-.completion-actions p { flex-basis: 100%; margin: 0; }
-
-.checkout-summary {
-  position: sticky;
-  top: 92px;
-  background: var(--color-surface-muted);
+.link-btn {
+  align-self: center;
+  background: transparent;
   border: 0;
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: 0;
+  color: var(--color-fg-subtle);
+  font-size: 14px;
+  line-height: 22px;
+  text-decoration: underline;
 }
 
-.checkout-summary h2 { margin: 0 0 1rem; font-size: 1.2rem; }
-
-.checkout-line,
-.checkout-total {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: .7rem 0;
-  border-bottom: 1px solid var(--color-border);
+.link-btn:hover {
+  background: transparent;
+  color: var(--color-fg);
+  text-decoration: underline;
 }
 
-.checkout-line > div { display: grid; gap: .18rem; }
-.checkout-line small { color: var(--color-fg-muted); font-size: .72rem; }
-.checkout-line > strong { display: grid; justify-items: end; white-space: nowrap; }
-
-.item-type {
-  justify-self: start;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--color-fg-muted);
-  font-size: .62rem;
-  font-weight: 500;
+/* Figma: Overlay #231F20 @ 80% over the whole page; the provider window sits on top. */
+.secure-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--color-overlay);
+  cursor: pointer;
 }
 
-.checkout-total {
-  border-bottom: 0;
-  font-size: 1.1rem;
-}
 
-.checkout-total.grand-total {
-  margin-top: .35rem;
-  font-weight: 700;
-}
 
-@media (max-width: 860px) {
-  .checkout-grid { grid-template-columns: 1fr; }
-  .checkout-summary { position: static; }
-}
+
+

@@ -6,11 +6,14 @@ The storefront contract is deliberately split:
 * POST /checkout accepts one-time cart items only.
 * POST /subscribe accepts exactly one recurring product and quantity >= 1.
 
-This test verifies both boundary rules and the successful subscription flow. A
-a navigation-only PaymentAsia browser return must not be treated as a callback;
-the verified tokenization notify must create one recurring schedule,
-one successful order, and exactly one recurring order item. No Standard Hosted
-Payment step or BPayments row is involved.
+This test verifies both boundary rules and the successful HKD + CreditCard
+subscription flow. New estore-app versions may first receive the biz-app hosted
+payment selector; the test chooses CreditCard when that selector is present, then
+continues the same recurring tokenization assertions. A navigation-only
+PaymentAsia browser return must not be treated as a callback; the verified
+tokenization notify must create one recurring schedule, one successful order, and
+exactly one recurring order item. No Standard Hosted Payment step or BPayments row
+is involved.
 
 Required additional environment:
   PA_SECRET_CODE
@@ -38,7 +41,7 @@ from estore_review_test_utils import (
     delete_orders_direct,
 )
 from estore_test_cleanup import cleanup_estore_test_customer
-from estore_test_config import estore_base_url, first_env, load_test_env
+from estore_test_config import biz_base_url, estore_base_url, first_env, load_test_env
 
 
 load_test_env()
@@ -257,6 +260,41 @@ def extract_checkout_id(document: str) -> str:
     return html.unescape(match.group(1))
 
 
+def extract_continue_link(document: str) -> str:
+    match = re.search(r'<a[^>]+href=["\']([^"\']+)["\']', document, flags=re.IGNORECASE)
+    if not match:
+        raise AssertionError(f"Subscription redirect page has no continue link: {document[:500]!r}")
+    return html.unescape(match.group(1))
+
+
+def select_credit_card_if_hosted(link: str, checkout_id: str, timeout: int) -> None:
+    parsed = urllib.parse.urlparse(link)
+    expected_path = f"/subscription/c/{checkout_id}"
+    if parsed.path != expected_path:
+        # CreditCard-only merchants retain the direct legacy tokenization link.
+        return
+    token = urllib.parse.parse_qs(parsed.query).get("token", [None])[0]
+    if not token:
+        raise AssertionError(f"Hosted subscription selector link has no token: {link!r}")
+    # Use the internal biz-app test address rather than the browser-facing
+    # BIZ_PUBLIC_BASE_URL; the token/path remain those issued by biz-app.
+    select_url = f"{biz_base_url()}{expected_path}/select"
+    response = requests.post(
+        select_url,
+        data={"token": token, "network": "CreditCard"},
+        timeout=timeout,
+        allow_redirects=False,
+    )
+    if response.status_code != 303:
+        raise AssertionError(
+            "Hosted subscription CreditCard selection did not redirect to tokenization: "
+            f"status={response.status_code} body={response.text[:500]!r}"
+        )
+    location = response.headers.get("Location")
+    if not location:
+        raise AssertionError("Hosted subscription CreditCard selection returned no Location header")
+
+
 def assert_error_contains(result: Result, text: str) -> None:
     message = result.payload.get("error") if isinstance(result.payload, dict) else str(result.payload)
     if text.lower() not in str(message).lower():
@@ -375,11 +413,17 @@ def main() -> int:
                 "subject": "Single recurring eStore subscription test",
             },
         )
-        if "secure card verification" not in subscription.text.lower():
-            raise AssertionError(f"Subscribe Now did not render tokenization redirect: {subscription.text[:500]!r}")
+        page_text = subscription.text.lower()
+        if "secure subscription checkout" not in page_text and "secure card verification" not in page_text:
+            raise AssertionError(f"Subscribe Now did not render a secure subscription redirect: {subscription.text[:500]!r}")
         checkout_id = extract_checkout_id(subscription.text)
         intent = get_one_intent(admin, checkout_id)
         intent_id = int(intent["id"])
+        # New estore-app versions delegate method choice to biz-app. If the
+        # merchant has alternative methods, explicitly choose CreditCard here so
+        # this legacy recurring E2E continues to validate the recurring branch.
+        select_credit_card_if_hosted(extract_continue_link(subscription.text), checkout_id, config.timeout)
+        intent = get_one_intent(admin, checkout_id)
         details = parse_intent_details(intent)
         original_intent_details_raw = intent.get("intent_details")
         context = parse_system_details(intent).get("recurring_checkout")

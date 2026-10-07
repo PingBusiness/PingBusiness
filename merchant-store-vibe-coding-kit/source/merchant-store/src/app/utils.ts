@@ -158,6 +158,48 @@ export function detailsPreview(details?: string): string {
   }
 }
 
+/** Display labels for merchant payment_networks values. Unknown values show as-is. */
+export const PAYMENT_NETWORK_LABELS: Record<string, string> = {
+  CreditCard: 'Credit Card', Fps: 'FPS', Wechat: 'WeChat Pay', Alipay: 'Alipay',
+  CUP: 'UnionPay', Octopus: 'Octopus', PayMe: 'PayMe', Crypto: 'Crypto (USDC)'
+};
+
+export function paymentNetworkLabel(network: string | null | undefined): string {
+  return PAYMENT_NETWORK_LABELS[network || ''] || network || '—';
+}
+
+export const SECURE_POPUP_WIDTH = 760;
+export const SECURE_POPUP_HEIGHT = 760;
+
+/** Top-left corner that puts the hosted payment window in the middle of the screen. */
+export function securePopupPosition(width = SECURE_POPUP_WIDTH, height = SECURE_POPUP_HEIGHT): { left: number; top: number } {
+  const s: any = window.screen || {};
+  const availLeft = Number(s.availLeft ?? 0);
+  const availTop = Number(s.availTop ?? 0);
+  const availWidth = Number(s.availWidth || s.width || window.outerWidth || width);
+  const availHeight = Number(s.availHeight || s.height || window.outerHeight || height);
+  return {
+    left: Math.max(availLeft, Math.round(availLeft + (availWidth - width) / 2)),
+    top: Math.max(availTop, Math.round(availTop + (availHeight - height) / 2))
+  };
+}
+
+/** window.open() features for the hosted payment window, centred on the screen. */
+export function securePopupFeatures(width = SECURE_POPUP_WIDTH, height = SECURE_POPUP_HEIGHT): string {
+  const { left, top } = securePopupPosition(width, height);
+  return `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+}
+
+/** Some browsers ignore left/top on open; move the window to the centre afterwards. */
+export function centreSecurePopup(popup: Window | null, width = SECURE_POPUP_WIDTH, height = SECURE_POPUP_HEIGHT): void {
+  if (!popup || popup.closed) {
+    return;
+  }
+  const { left, top } = securePopupPosition(width, height);
+  try { popup.resizeTo(width, height); } catch (_) {}
+  try { popup.moveTo(left, top); } catch (_) {}
+}
+
 export function isRecurringPlan(value: any): boolean {
   return !!String(value?.recurring_frequency || '').trim();
 }

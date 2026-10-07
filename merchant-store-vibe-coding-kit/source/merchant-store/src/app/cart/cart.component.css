@@ -122,9 +122,22 @@
   margin: 0;
 }
 
+/* Figma: payment-type column (180px) before the price column (100px). */
+.line-type {
+  flex-shrink: 0;
+  width: 180px;
+  padding: 0 8px;
+  color: var(--color-fg-subtle);
+  font-size: 16px;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .line-price {
   flex-shrink: 0;
-  width: 140px;
+  width: 100px;
   padding: 0 8px;
   color: var(--color-fg-subtle);
   font-size: 16px;
@@ -196,7 +209,7 @@
 .summary-content {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
 }
 
 .summary-rows {
@@ -261,9 +274,19 @@
   }
 }
 
+@media (max-width: 960px) {
+  .line-type {
+    width: auto;
+  }
+}
+
 @media (max-width: 560px) {
   .line-price {
     width: auto;
+  }
+
+  .line-type {
+    flex-basis: 100%;
   }
 
   .line-name {

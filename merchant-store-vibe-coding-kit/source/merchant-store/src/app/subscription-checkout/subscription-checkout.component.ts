@@ -7,6 +7,7 @@ import { catchError } from 'rxjs/operators';
 import { CheckoutStatus, Inventory, Product, SubscribePayload } from '../app.types';
 import { EstoreApiService } from '../services/estore-api.service';
 import { KeycloakService } from '../services/keycloak.service';
+import { ProductThumbService } from '../services/product-thumb.service';
 import {
   apiErrorMessage,
   asArray,
@@ -15,14 +16,16 @@ import {
   isRecurringPlan,
   nextHongKongCalendarDate,
   recurringPlanLabel,
+  centreSecurePopup,
   recurringPlannedTotal,
+  securePopupFeatures,
   toNumber
 } from '../utils';
 
 @Component({
   selector: 'app-subscription-checkout',
   templateUrl: './subscription-checkout.component.html',
-  styleUrls: ['./subscription-checkout.component.css']
+  styleUrls: ['../cart/cart.component.css', '../checkout/checkout.component.css', './subscription-checkout.component.css']
 })
 export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
   @ViewChild('checkoutFrame') checkoutFrame?: ElementRef<HTMLIFrameElement>;
@@ -41,6 +44,10 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
   paymentReference = '';
   error = '';
   notice = '';
+  /** Merchant-enabled networks, shown read-only: the hosted selector makes the real choice. */
+  paymentNetworks: string[] = [];
+  /** Outcome of the last finished checkout; drives the success / failure banner. */
+  subscriptionSucceeded = false;
 
   private checkoutFrameObjectUrl = '';
   private checkoutId = '';
@@ -55,7 +62,8 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
     private router: Router,
     private api: EstoreApiService,
     private keycloak: KeycloakService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private thumbs: ProductThumbService
   ) {}
 
   ngOnInit(): void {
@@ -88,15 +96,13 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
         this.error = 'This is a one-time product. Add it to the cart instead.';
         return;
       }
-      if (String(result.product.currency || '').toUpperCase() !== 'HKD') {
-        this.error = 'Subscriptions currently require HKD.';
-        return;
-      }
-      if (!asArray<string>(result.paymentNetworks?.payment_networks).includes('CreditCard')) {
-        this.error = 'Credit Card is not enabled for this merchant, so subscription checkout cannot start.';
+      this.paymentNetworks = asArray<string>(result.paymentNetworks?.payment_networks);
+      if (this.paymentNetworks.length === 0) {
+        this.error = 'This merchant has no payment method enabled, so subscription checkout cannot start.';
         return;
       }
       this.product = result.product;
+      this.thumbs.load(result.product);
       this.available = asArray<Inventory>(result.inventories).reduce((sum, row) => sum + toNumber(row?.quantity), 0);
       if (this.quantity > this.available) {
         this.quantity = Math.max(1, this.available);
@@ -114,6 +120,19 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
     return recurringPlanLabel(this.product);
   }
 
+  /** "Every month" / "Every 3 months" / "Every year" — the Schedule row in the design. */
+  scheduleLabel(): string {
+    const frequency = String(this.product?.recurring_frequency || '').toUpperCase();
+    const intervals = Math.max(1, Math.trunc(toNumber(this.product?.recurring_intervals) || 1));
+    const unit: Record<string, string> = { WEEKLY: 'week', MONTHLY: 'month', YEARLY: 'year' };
+    if (!unit[frequency]) { return recurringPlanLabel(this.product); }
+    return intervals > 1 ? `Every ${intervals} ${unit[frequency]}s` : `Every ${unit[frequency]}`;
+  }
+
+  executions(): number {
+    return Math.max(1, Math.trunc(toNumber(this.product?.recurring_total_execution_times) || 1));
+  }
+
   firstChargeDate(): string {
     return formatIsoDate(nextHongKongCalendarDate());
   }
@@ -127,6 +146,50 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
       recurringPlannedTotal(this.product?.amount, this.product, this.quantity),
       this.product?.currency
     );
+  }
+
+  imageUrl(): string {
+    return this.thumbs.url(this.product?.id);
+  }
+
+  /** "Monthly Subscription" / "Annual Subscription" — the line-type column in the design. */
+  lineTypeLabel(): string {
+    const frequency = String(this.product?.recurring_frequency || '').toUpperCase();
+    const intervals = Math.max(1, Math.trunc(toNumber(this.product?.recurring_intervals) || 1));
+    const names: Record<string, string> = { WEEKLY: 'Weekly', MONTHLY: 'Monthly', YEARLY: 'Annual' };
+    const base = names[frequency] ? `${names[frequency]} Subscription` : 'Subscription';
+    return intervals > 1 ? `${base} (every ${intervals})` : base;
+  }
+
+  lineAmount(): string {
+    return formatMoney(toNumber(this.product?.amount), this.product?.currency);
+  }
+
+  /** True once the backend has reported a recurring (per-period) schedule for this checkout. */
+  billedPerPeriod(): boolean {
+    return !!this.recurringCheckoutStatus;
+  }
+
+  secureOverlayVisible(): boolean {
+    return this.checkoutStarted && !this.completed && !this.starting && (!!this.externalCheckoutUrl || !!this.checkoutFrameUrl);
+  }
+
+  focusSecureWindow(): void {
+    if (this.secureWindowOpen()) {
+      try { this.checkoutPopup?.focus(); } catch (_) {}
+    }
+  }
+
+  cancelSecureCheckout(): void {
+    if (this.completed) { return; }
+    this.stopStatusPolling();
+    this.closeEmptyPopup();
+    this.clearCheckoutFrame();
+    this.externalCheckoutUrl = '';
+    this.checkoutStarted = false;
+    this.starting = false;
+    this.notice = '';
+    this.error = '';
   }
 
   quantityExceedsStock(): boolean {
@@ -180,10 +243,10 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
             this.externalCheckoutUrl = this.extractExternalCheckoutUrl(html);
             if (this.checkoutPopup && !this.checkoutPopup.closed && this.externalCheckoutUrl) {
               this.checkoutPopup.location.href = this.externalCheckoutUrl;
-              this.notice = 'Complete secure card verification in the PaymentAsia window.';
+              this.notice = 'Complete secure payment verification in the payment window.';
             } else {
               this.closeEmptyPopup();
-              this.notice = 'Complete secure card verification below.';
+              this.notice = 'Complete secure payment verification below.';
               this.setCheckoutFrame(html);
             }
             if (!this.checkoutId) {
@@ -213,12 +276,12 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
 
   recurringStatusLabel(): string {
     const labels: Record<string, string> = {
-      TOKENIZATION_REQUESTING: 'Requesting secure card verification',
-      TOKENIZATION_PENDING: 'Waiting for card verification',
-      TOKENIZATION_FAILED: 'Card verification failed',
-      TOKENIZATION_ERROR: 'Card verification could not start',
-      TOKENIZATION_UNKNOWN: 'Card verification result is uncertain',
-      SCHEDULE_CREATING: 'Creating the subscription schedule',
+      TOKENIZATION_REQUESTING: 'Requesting secure payment verification',
+      TOKENIZATION_PENDING: 'Waiting for payment verification',
+      TOKENIZATION_FAILED: 'Payment verification failed',
+      TOKENIZATION_ERROR: 'Payment verification could not start',
+      TOKENIZATION_UNKNOWN: 'Payment verification result is uncertain',
+      SCHEDULE_CREATING: 'Confirming the subscription',
       SCHEDULE_CREATION_FAILED: 'Subscription setup failed',
       SCHEDULE_CREATION_UNKNOWN: 'Subscription setup result is uncertain',
       COMPLETE: 'Subscription complete',
@@ -249,22 +312,25 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
     this.checkoutPopup = window.open(
       this.externalCheckoutUrl,
       'pingbizSubscriptionCheckout',
-      'width=760,height=760,resizable=yes,scrollbars=yes'
+      securePopupFeatures()
     );
     if (!this.checkoutPopup) {
       this.error = 'Your browser blocked the secure checkout window. Allow pop-ups or continue in the embedded checkout below.';
+      return;
     }
+    centreSecurePopup(this.checkoutPopup);
   }
 
   private preparePopup(): void {
-    this.checkoutPopup = window.open('', 'pingbizSubscriptionCheckout', 'width=760,height=760,resizable=yes,scrollbars=yes');
+    this.checkoutPopup = window.open('', 'pingbizSubscriptionCheckout', securePopupFeatures());
     if (!this.checkoutPopup) {
       this.notice = 'Your browser blocked the secure checkout window. The checkout will open below instead.';
       return;
     }
+    centreSecurePopup(this.checkoutPopup);
     try {
       this.checkoutPopup.document.title = 'Preparing secure subscription checkout';
-      this.checkoutPopup.document.body.innerHTML = '<main style="font-family:system-ui;padding:2rem"><h1>Preparing secure card verification...</h1><p>Please keep this window open.</p></main>';
+      this.checkoutPopup.document.body.innerHTML = '<main style="font-family:system-ui;padding:2rem"><h1>Preparing secure payment verification...</h1><p>Please keep this window open.</p></main>';
     } catch (_) {}
   }
 
@@ -374,13 +440,13 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
 
   private updateProgressNotice(fromReturnMessage: boolean): void {
     if (this.recurringCheckoutStatus === 'SCHEDULE_CREATING') {
-      this.notice = 'Card verified. Creating your subscription schedule...';
+      this.notice = 'Payment verified. Confirming your subscription...';
     } else if (this.recurringCheckoutStatus === 'TOKENIZATION_PENDING') {
-      this.notice = 'Waiting for secure card verification...';
+      this.notice = 'Waiting for secure payment verification...';
     } else if (this.recurringCheckoutStatus === 'COMPLETE') {
       this.notice = 'Subscription schedule accepted. Confirming the order...';
     } else if (fromReturnMessage) {
-      this.notice = 'Card-verification response received. Confirming subscription status...';
+      this.notice = 'Payment-verification response received. Confirming subscription status...';
     }
   }
 
@@ -391,10 +457,11 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
     this.completed = true;
     this.orderId = Number(data.orderId || data.order_id) || undefined;
     this.paymentReference = data.paymentReference || data.payment_reference || '';
+    this.subscriptionSucceeded = success;
     if (success) {
       this.error = '';
-      this.notice = 'Subscription created successfully. The first scheduled payment is on the next Hong Kong calendar day.';
-      // Keep the PaymentAsia window open so its return URL can display the final success message.
+      this.notice = '';
+      // Keep the payment window open so its return URL can display the final success message.
     } else {
       this.notice = '';
       const detail = this.recurringCheckoutStatus ? ` (${this.recurringStatusLabel()})` : '';

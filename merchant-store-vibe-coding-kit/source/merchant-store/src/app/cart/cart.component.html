@@ -27,6 +27,8 @@
         </button>
       </div>
 
+      <div class="line-type">One-time payment</div>
+
       <div class="line-price">{{ lineTotal(item) }}</div>
 
       <button type="button" class="line-remove" (click)="remove(item)">Remove</button>
@@ -42,7 +44,7 @@
     <div class="summary-content">
       <div class="summary-rows">
         <div class="summary-row">
-          <span class="sum-label">Products</span>
+          <span class="sum-label">Items / Products</span>
           <strong>{{ items.length }}</strong>
         </div>
         <div class="summary-row">
@@ -51,7 +53,15 @@
         </div>
       </div>
       <div class="summary-cta">
-        <button type="button" class="checkout-btn" (click)="checkout()" [disabled]="checkoutLoading || hasStockError()">
+        <app-payment-methods
+          title="Select payment method"
+          description="Choose one of this merchant's available payment methods, then complete payment in a secure payment window."
+          [networks]="paymentNetworks"
+          [loading]="networksLoading"
+          [selected]="selectedNetwork"
+          (selectedChange)="selectNetwork($event)"></app-payment-methods>
+        <button type="button" class="checkout-btn" (click)="checkout()"
+          [disabled]="checkoutLoading || hasStockError() || networksLoading || !selectedNetwork">
           {{ checkoutLoading ? 'Checking inventory…' : 'Proceed to Checkout' }}
         </button>
         <p *ngIf="hasStockError()" class="summary-note" role="alert">Some items exceed available stock — update the quantities to continue.</p>

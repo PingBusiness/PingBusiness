@@ -7,6 +7,7 @@ import { CartLine, Inventory, ProductFile } from '../app.types';
 import { CartService } from '../services/cart.service';
 import { EstoreApiService } from '../services/estore-api.service';
 import { KeycloakService } from '../services/keycloak.service';
+import { SecurePopupService } from '../services/secure-popup.service';
 import { ToastService } from '../services/toast.service';
 import { apiErrorMessage, asArray, formatMoney, isRecurringPlan, toNumber } from '../utils';
 
@@ -24,6 +25,10 @@ export class CartComponent implements OnInit, OnDestroy {
   checkoutError = '';
   cartNotice = '';
   checkoutLoading = false;
+  /** Merchant-enabled payment networks shown in the Order summary (Figma: Select payment method). */
+  paymentNetworks: string[] = [];
+  selectedNetwork = '';
+  networksLoading = true;
   cartLineErrors: Record<number, string> = {};
   /** Latest known available stock per product line, for the "N in stock" hint. */
   cartLineStock: Record<number, number> = {};
@@ -36,7 +41,8 @@ export class CartComponent implements OnInit, OnDestroy {
     private api: EstoreApiService,
     private keycloak: KeycloakService,
     private router: Router,
-    private toast: ToastService
+    private toast: ToastService,
+    private securePopup: SecurePopupService
   ) {}
 
   ngOnInit(): void {
@@ -50,6 +56,30 @@ export class CartComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.keycloak.authState$.subscribe(() => this.authenticated = this.keycloak.isAuthenticated()));
     this.authenticated = this.keycloak.isAuthenticated();
+    this.loadPaymentNetworks();
+  }
+
+  private loadPaymentNetworks(): void {
+    this.networksLoading = true;
+    this.api.getPaymentNetworks().subscribe({
+      next: response => {
+        this.networksLoading = false;
+        this.paymentNetworks = asArray<string>(response?.payment_networks);
+        if (!this.paymentNetworks.includes(this.selectedNetwork)) {
+          this.selectedNetwork = this.paymentNetworks.length === 1 ? this.paymentNetworks[0] : '';
+        }
+      },
+      error: err => {
+        this.networksLoading = false;
+        this.paymentNetworks = [];
+        this.selectedNetwork = '';
+        this.toast.show(apiErrorMessage(err), 'error');
+      }
+    });
+  }
+
+  selectNetwork(network: string): void {
+    this.selectedNetwork = network;
   }
 
   ngOnDestroy(): void {
@@ -161,23 +191,35 @@ export class CartComponent implements OnInit, OnDestroy {
       this.toast.show('All cart items must use the same currency.', 'error');
       return;
     }
+    if (!this.networksLoading && !this.paymentNetworks.includes(this.selectedNetwork)) {
+      this.toast.show('Choose a payment method before continuing.', 'error');
+      return;
+    }
 
+    const checkoutUrl = this.selectedNetwork ? `/checkout?network=${encodeURIComponent(this.selectedNetwork)}` : '/checkout';
+    if (!this.authenticated) {
+      this.router.navigate(['/signin'], { queryParams: { returnUrl: checkoutUrl } });
+      return;
+    }
+
+    // One step, as in the design: the secure window opens on this very click
+    // (browsers only allow it inside a user gesture); /checkout then posts the
+    // provider launch into it. Closed again if the cart fails validation.
+    const popup = this.securePopup.open('pingbizCartCheckout');
     this.checkoutLoading = true;
     this.validateCartInventory().subscribe({
       next: inventoryError => {
         this.checkoutLoading = false;
         if (inventoryError) {
+          this.securePopup.close('pingbizCartCheckout');
           this.toast.show(inventoryError, 'error');
           return;
         }
-        if (!this.authenticated) {
-          this.router.navigate(['/signin'], { queryParams: { returnUrl: '/checkout' } });
-          return;
-        }
-        this.router.navigate(['/checkout']);
+        this.router.navigateByUrl(popup ? `${checkoutUrl}&launch=1` : checkoutUrl);
       },
       error: err => {
         this.checkoutLoading = false;
+        this.securePopup.close('pingbizCartCheckout');
         this.toast.show(apiErrorMessage(err), 'error');
       }
     });
