@@ -230,6 +230,40 @@ export function recurringPlannedTotal(amount: any, value: any, quantity = 1): nu
   return toNumber(amount) * Math.max(1, Number(quantity) || 1) * executions;
 }
 
+/** Number of charges in the whole term: the plan's executions, once per quantity unit. */
+export function recurringTotalPayments(value: any, quantity = 1): number {
+  const executions = Math.max(1, Number(value?.recurring_total_execution_times) || 1);
+  return executions * Math.max(1, Math.trunc(Number(quantity)) || 1);
+}
+
+/**
+ * ISO date on which the subscription term ends: the first charge date plus one
+ * billing period per payment, so the last paid period runs out on this day.
+ * Month and year steps clamp to the last day of the month (Jan 31 + 1 month = Feb 28).
+ */
+export function recurringEndDate(firstChargeIso: string, value: any, quantity = 1): string {
+  const match = String(firstChargeIso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match || !isRecurringPlan(value)) {
+    return '';
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const intervals = Math.max(1, Math.trunc(Number(value?.recurring_intervals)) || 1);
+  const periods = recurringTotalPayments(value, quantity) * intervals;
+  const frequency = String(value?.recurring_frequency || '').toUpperCase();
+
+  let end: Date;
+  if (frequency === 'WEEKLY') {
+    end = new Date(Date.UTC(year, month, day + periods * 7));
+  } else {
+    const months = frequency === 'YEARLY' ? periods * 12 : periods;
+    const lastDay = new Date(Date.UTC(year, month + months + 1, 0)).getUTCDate();
+    end = new Date(Date.UTC(year, month + months, Math.min(day, lastDay)));
+  }
+  return end.toISOString().slice(0, 10);
+}
+
 export function nextHongKongCalendarDate(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Hong_Kong',

@@ -17,7 +17,9 @@ import {
   nextHongKongCalendarDate,
   recurringPlanLabel,
   centreSecurePopup,
+  recurringEndDate,
   recurringPlannedTotal,
+  recurringTotalPayments,
   securePopupFeatures,
   toNumber
 } from '../utils';
@@ -129,16 +131,23 @@ export class SubscriptionCheckoutComponent implements OnInit, OnDestroy {
     return intervals > 1 ? `Every ${intervals} ${unit[frequency]}s` : `Every ${unit[frequency]}`;
   }
 
-  executions(): number {
-    return Math.max(1, Math.trunc(toNumber(this.product?.recurring_total_execution_times) || 1));
-  }
-
   firstChargeDate(): string {
     return formatIsoDate(nextHongKongCalendarDate());
   }
 
+  /** Quantity buys extra terms, so the number of charges is executions × quantity. */
+  totalPayments(): number {
+    return recurringTotalPayments(this.product, this.quantity);
+  }
+
+  /** Day the last paid period runs out: first charge + one period per payment. */
+  endDate(): string {
+    return formatIsoDate(recurringEndDate(nextHongKongCalendarDate(), this.product, this.quantity));
+  }
+
+  /** Each charge is the plan amount; quantity extends the term instead of multiplying the charge. */
   amountPerPayment(): string {
-    return formatMoney(toNumber(this.product?.amount) * Math.max(1, Math.trunc(Number(this.quantity) || 1)), this.product?.currency);
+    return formatMoney(toNumber(this.product?.amount), this.product?.currency);
   }
 
   plannedCommitment(): string {

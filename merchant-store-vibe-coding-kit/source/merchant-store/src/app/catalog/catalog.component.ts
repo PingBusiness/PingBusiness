@@ -176,8 +176,8 @@ export class CatalogComponent implements OnInit, OnDestroy {
       this.subscribe(event);
       return;
     }
-    this.cart.add(event.product, event.quantity);
-    this.toast.show(`${event.quantity} × ${event.product.name || 'item'} added to cart`);
+    this.cart.add(event.product);
+    this.toast.show(`${event.product.name || 'Item'} added to cart`);
   }
 
   subscribe(event: { product: ProductWithInventory; quantity: number }): void {

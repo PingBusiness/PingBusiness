@@ -69,7 +69,11 @@
           <strong>{{ firstChargeDate() }}</strong>
         </div>
         <div class="summary-row">
-          <span class="sum-label">Full commitment ({{ executions() }} payments)</span>
+          <span class="sum-label">End date</span>
+          <strong>{{ endDate() }}</strong>
+        </div>
+        <div class="summary-row">
+          <span class="sum-label">Full commitment ({{ totalPayments() }} payment{{ totalPayments() === 1 ? '' : 's' }})</span>
           <strong>{{ plannedCommitment() }}</strong>
         </div>
         <div class="summary-row">

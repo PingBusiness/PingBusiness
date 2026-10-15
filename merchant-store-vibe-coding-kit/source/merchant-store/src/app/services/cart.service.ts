@@ -11,42 +11,35 @@ export class CartService {
   private readonly itemsSubject = new BehaviorSubject<CartLine[]>(this.load());
 
   readonly items$ = this.itemsSubject.asObservable();
-  readonly count$ = this.items$.pipe(map(items => items.reduce((sum, item) => sum + item.quantity, 0)));
+  /** One unit per product line, so the badge counts lines. */
+  readonly count$ = this.items$.pipe(map(items => items.length));
   readonly subtotal$ = this.items$.pipe(map(items => this.subtotal(items)));
 
   getSnapshot(): CartLine[] {
     return this.itemsSubject.value;
   }
 
-  add(product: Product, quantity = 1): void {
+  /**
+   * The store sells one unit per product: adding a product that is already in
+   * the cart refreshes its details instead of raising the quantity.
+   */
+  add(product: Product): void {
     const productId = Number(product.id);
-    if (!productId || quantity <= 0 || isRecurringPlan(product)) {
+    if (!productId || isRecurringPlan(product)) {
       return;
     }
     const current = [...this.itemsSubject.value];
     const existing = current.find(item => item.product_id === productId);
     if (existing) {
-      existing.quantity += quantity;
       existing.product = product;
     } else {
       current.push({
         product_id: productId,
-        quantity,
+        quantity: 1,
         product,
         added_at: Date.now()
       });
     }
-    this.persist(current);
-  }
-
-  updateQuantity(productId: number, quantity: number): void {
-    if (quantity <= 0) {
-      this.remove(productId);
-      return;
-    }
-    const current = this.itemsSubject.value.map(item =>
-      item.product_id === productId ? { ...item, quantity } : item
-    );
     this.persist(current);
   }
 
@@ -74,7 +67,7 @@ export class CartService {
   }
 
   lineTotal(item: CartLine): number {
-    return toNumber(item.product.amount) * item.quantity;
+    return toNumber(item.product.amount);
   }
 
   subtotal(items = this.itemsSubject.value): number {
@@ -88,8 +81,11 @@ export class CartService {
     }
     try {
       const parsed = JSON.parse(raw);
-      const ordinaryItems = Array.isArray(parsed)
-        ? parsed.filter(item => item?.product_id && item?.quantity > 0 && !isRecurringPlan(item?.product))
+      // Carts saved before quantities were fixed at one are normalised on load.
+      const ordinaryItems: CartLine[] = Array.isArray(parsed)
+        ? parsed
+          .filter(item => item?.product_id && !isRecurringPlan(item?.product))
+          .map(item => ({ ...item, quantity: 1 }))
         : [];
       sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(ordinaryItems));
       return ordinaryItems;

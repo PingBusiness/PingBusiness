@@ -24,9 +24,6 @@
       </a>
       <a class="line-name" [routerLink]="['/product', item.product_id]">{{ item.product.name }}</a>
       <div class="line-type">One-time payment</div>
-      <!-- Same column as the cart's quantity stepper, read-only here so the
-           number is never clipped by the payment-type cell's ellipsis. -->
-      <div class="line-qty line-qty-static" aria-label="Quantity">Qty {{ item.quantity }}</div>
       <div class="line-price">{{ lineTotal(item) }}</div>
     </article>
   </div>

@@ -21,19 +21,6 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, .25);
 }
 
-/* Checkout lines are read-only: the quantity shows as text inside the same
-   pill footprint as the cart's stepper so cart and checkout line up. */
-.line-qty-static {
-  justify-content: center;
-  height: 32px;
-  min-width: 108px; /* same footprint as the − [n] + stepper (32 + 44 + 32) */
-  padding: 0 16px;
-  color: var(--color-fg);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
 /* Design truncates long references with an ellipsis. */
 .summary-row .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

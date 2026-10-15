@@ -89,7 +89,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
 
   onAddToCart(event: { product: ProductWithInventory; quantity: number }): void {
-    this.cart.add(event.product, event.quantity);
+    this.cart.add(event.product);
     this.toast.show(`${event.product.name || 'Item'} added to cart`);
   }
 

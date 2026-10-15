@@ -103,23 +103,7 @@ export class CartComponent implements OnInit, OnDestroy {
     return this.imageUrls.get(item.product_id) || '';
   }
 
-  update(item: CartLine, quantity: any): void {
-    this.checkoutError = '';
-    // Typed input can be empty/0/negative — clamp to a whole number ≥ 1 (Remove
-    // is the way to take an item out, not quantity 0).
-    const qty = Math.max(1, Math.trunc(Number(quantity)) || 1);
-    // Update the per-line error SYNCHRONOUSLY from the stock we already know, so
-    // the message doesn't blink off then on while the async re-check is in flight.
-    const known = this.cartLineStock[item.product_id];
-    if (known !== undefined && qty > known) {
-      this.cartLineErrors[item.product_id] = 'The requested quantity is unavailable.';
-    } else {
-      delete this.cartLineErrors[item.product_id];
-    }
-    this.cart.updateQuantity(item.product_id, qty);
-  }
-
-  /** Keep DOM (and loaded images) stable across quantity changes — no flicker. */
+  /** Keep DOM (and loaded images) stable across cart updates — no flicker. */
   trackByProductId(_index: number, item: CartLine): number {
     return item.product_id;
   }

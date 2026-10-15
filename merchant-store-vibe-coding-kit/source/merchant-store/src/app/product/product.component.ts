@@ -235,7 +235,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       return;
     }
     this.error = '';
-    this.cart.add(this.product, Math.max(1, Math.trunc(Number(this.quantity) || 1)));
+    this.cart.add(this.product);
     this.toast.show(`${this.product.name || 'Item'} added to cart`);
   }
 

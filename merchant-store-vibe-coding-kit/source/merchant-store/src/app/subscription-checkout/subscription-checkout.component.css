@@ -1,4 +1,77 @@
 /* Layout and overlay come from cart.component.css + checkout.component.css (styleUrls). */
+
+/* Subscriptions keep a quantity: the − [n] + stepper before checkout starts,
+   then the number as read-only text in the same pill footprint. */
+.line-qty {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.qty-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-fg);
+  border-radius: 0;
+}
+
+.qty-btn:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  color: var(--color-fg);
+}
+
+.qty-btn:disabled {
+  color: var(--color-fg-faint);
+  opacity: 1;
+}
+
+.qty-value {
+  width: 44px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  padding: 6px 0;
+  /* Strip native number-input chrome so it blends into the pill. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.qty-value:focus {
+  outline: none;
+}
+
+.qty-value::-webkit-outer-spin-button,
+.qty-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.line-qty-static {
+  justify-content: center;
+  height: 32px;
+  min-width: 108px; /* same footprint as the − [n] + stepper (32 + 44 + 32) */
+  padding: 0 16px;
+  color: var(--color-fg);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cart-line.has-error .line-qty input {
+  border-color: var(--color-danger-strong);
+}
+
 .payment-frame {
   width: 100%;
   min-height: 720px;
